@@ -1,0 +1,12 @@
+{
+  "name": "warzone-rts",
+  "version": "1.0.0",
+  "description": "Warzone - Tactical Modern RTS & Base Builder",
+  "type": "module",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "dev": "python3 -m http.server 8080"
+  },
+  "author": "",
+  "license": "MIT"
+}
