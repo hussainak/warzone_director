@@ -1,9 +1,16 @@
 # AGENTS.md - Warzone Project Standards & Specification
 
-## 1. Mandatory Protocol: "Always Document"
+## 1. Mandatory Protocols
+### 1.1 "Always Document"
 > **CRITICAL RULE**: Every feature, architectural design decision, code modification, new game mechanic, system expansion, and debugging discovery in this project **must be thoroughly documented**.
 > - Whenever code is modified or new systems are added, update the relevant documentation in this file or project docs.
 > - Maintain clean code comments and architectural explanations so that any developer or agent can understand and extend any part of the engine.
+
+### 1.2 "Always Publish & Deploy"
+> **CRITICAL RULE**: Every new version, feature, bug fix, balance adjustment, or visual improvement **must be immediately committed, pushed to `origin/main`, and deployed to GitHub Pages**.
+> - **Public Live URL**: **`https://hussainak.github.io/warzone_director/`**
+> - The repository must remain public with GitHub Pages enabled on `main` at `/`.
+> - Always verify that the public GitHub Pages build is updated and accessible after pushing changes.
 
 ---
 
@@ -83,3 +90,14 @@ warzone_director/
 - **Camera Movement**: WASD / Arrow keys, screen edge panning, on-screen D-Pad, or clicking minimap and sector jump buttons.
 - **Spacebar / Focus Button**: Centers camera directly on player base.
 - **Mouse Wheel**: Smooth zoom.
+
+---
+
+## 5. Public Deployment & GitHub Pages
+- **Hosting**: GitHub Pages (Branch: `main`, Path: `/`)
+- **Public URL**: [https://hussainak.github.io/warzone_director/](https://hussainak.github.io/warzone_director/)
+- **Deployment Flow**:
+  1. Commit all modified files with descriptive commit message.
+  2. Push to `origin main`.
+  3. Verify GitHub Pages build status with `gh api repos/hussainak/warzone_director/pages`.
+  4. Ensure live web access and zero 404s.
