@@ -75,7 +75,7 @@ export class HUD {
     const rBtn = document.getElementById("btn-ability-r");
 
     if (qBtn) qBtn.addEventListener("click", () => this.input.startAbilityTargeting("q"));
-    if (wBtn) qBtn.addEventListener("click", () => this.input.startAbilityTargeting("w"));
+    if (wBtn) wBtn.addEventListener("click", () => this.input.startAbilityTargeting("w"));
     if (eBtn) {
       eBtn.addEventListener("click", () => {
         if (this.hero && !this.hero.isDead) {
@@ -93,7 +93,7 @@ export class HUD {
       this.selectionPanelEl.innerHTML = `
         <div class="empty-selection">
           <div class="radar-scan-anim"></div>
-          <span>TACTICAL STANDBY - NO UNIT SELECTED</span>
+          <span>RIGHT-CLICK TO MOVE HERO & ARMIES</span>
         </div>
       `;
       return;
@@ -117,10 +117,11 @@ export class HUD {
       `;
     } else if (selected.type === "unit") {
       const u = selected.entity;
+      const isPlayer = u.team === "player";
       this.selectionPanelEl.innerHTML = `
         <div class="entity-card">
           <div class="card-header">
-            <span class="badge-unit">${u.category.toUpperCase()}</span>
+            <span class="${isPlayer ? 'badge-unit' : 'badge-enemy'}">${isPlayer ? 'ALLIED ' : 'HOSTILE '}${u.category.toUpperCase()}</span>
             <span class="entity-name">${u.name}</span>
           </div>
           <div class="card-stats">
@@ -145,9 +146,10 @@ export class HUD {
       `;
     } else if (selected.type === "building") {
       const b = selected.entity;
+      const isPlayer = b.team === "player";
       let trainingControls = "";
 
-      if (b.team === "player" && b.trains && b.trains.length > 0 && !b.isConstructing) {
+      if (isPlayer && b.trains && b.trains.length > 0 && !b.isConstructing) {
         trainingControls = `<div class="train-buttons-header">RECRUIT / FABRICATE:</div><div class="train-buttons-grid">`;
         b.trains.forEach((uId) => {
           const uConf = UNITS_CONFIG[uId];
@@ -166,7 +168,7 @@ export class HUD {
       this.selectionPanelEl.innerHTML = `
         <div class="entity-card">
           <div class="card-header">
-            <span class="badge-building">${b.team.toUpperCase()} STRUCTURE</span>
+            <span class="${isPlayer ? 'badge-building' : 'badge-enemy'}">${isPlayer ? 'ALLIED' : 'HOSTILE'} STRUCTURE</span>
             <span class="entity-name">${b.name}</span>
           </div>
           <div class="card-stats">
@@ -179,7 +181,6 @@ export class HUD {
         </div>
       `;
 
-      // Attach event listeners to training buttons
       const trainBtns = this.selectionPanelEl.querySelectorAll(".btn-train");
       trainBtns.forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -196,7 +197,6 @@ export class HUD {
   }
 
   update(dt, allEntities) {
-    // Update Resource Bars
     if (this.fundsEl) this.fundsEl.textContent = `$${Math.floor(this.economy.funds).toLocaleString()}`;
     if (this.techEl) this.techEl.textContent = `${Math.floor(this.economy.techSupplies)} T`;
 
@@ -206,7 +206,6 @@ export class HUD {
       this.powerEl.className = netPower < 0 ? "power-warning" : "power-good";
     }
 
-    // Update Wave Timer & Siren Status
     if (this.waveTimerEl) {
       const t = Math.max(0, Math.ceil(this.invasion.waveTimer));
       const mins = Math.floor(t / 60);
@@ -218,19 +217,17 @@ export class HUD {
           this.waveStatusEl.textContent = `RED ALERT: WAVE ${this.invasion.currentWave} [${this.invasion.strikeVector}]`;
           this.waveStatusEl.className = "status-alert pulse";
         } else {
-          this.waveStatusEl.textContent = `WAVE ${this.invasion.currentWave} IMMINENT`;
+          this.waveStatusEl.textContent = `PEACE GRACE PERIOD`;
           this.waveStatusEl.className = "status-normal";
         }
       }
     }
 
-    // Update Hero status & cooldown overlays
     if (this.hero && !this.hero.isDead) {
       if (this.heroHpEl) this.heroHpEl.style.width = `${Math.max(0, (this.hero.hp / this.hero.maxHp) * 100)}%`;
       if (this.heroEnergyEl) this.heroEnergyEl.style.width = `${Math.max(0, (this.hero.energy / this.hero.maxEnergy) * 100)}%`;
       if (this.heroLevelEl) this.heroLevelEl.textContent = `LVL ${this.hero.level}`;
 
-      // Update cooldown overlays on buttons
       ["q", "w", "e", "r"].forEach((key) => {
         const cd = this.hero.cooldowns[key];
         const cdEl = document.getElementById(`cd-overlay-${key}`);
@@ -245,7 +242,6 @@ export class HUD {
       });
     }
 
-    // Render Minimap Radar
     this.renderMinimap(allEntities);
   }
 
@@ -255,18 +251,18 @@ export class HUD {
     const w = this.minimapCanvas.width;
     const h = this.minimapCanvas.height;
 
-    // Dark radar background
-    ctx.fillStyle = "#0c131d";
+    // Tactical Radar Background
+    ctx.fillStyle = "#0c1522";
     ctx.fillRect(0, 0, w, h);
 
     const scaleX = w / this.map.width;
     const scaleY = h / this.map.height;
 
-    // Water bodies and obstacles
+    // Water River
     for (let x = 0; x < this.map.width; x += 2) {
       for (let y = 0; y < this.map.height; y += 2) {
         if (this.map.getTile(x, y) === 4) {
-          ctx.fillStyle = "#1a365d";
+          ctx.fillStyle = "#1e3a5f";
           ctx.fillRect(x * scaleX, y * scaleY, scaleX * 2, scaleY * 2);
         } else if (this.map.getTile(x, y) === 5) {
           ctx.fillStyle = "#4a5568";
@@ -275,7 +271,7 @@ export class HUD {
       }
     }
 
-    // Capturable Oil Derricks
+    // Oil Derricks (Yellow / Green)
     this.map.resourceNodes.forEach((node) => {
       if (node.type === "oil") {
         ctx.fillStyle = node.captured ? "#38ef7d" : "#ecc94b";
@@ -283,7 +279,7 @@ export class HUD {
       }
     });
 
-    // Draw entities (friendly cyan, enemy red)
+    // Draw all entities: Friendly (Cyan / Blue), Hostile rival armies (Red)
     for (let i = 0; i < allEntities.length; i++) {
       const e = allEntities[i];
       if (e.isDead) continue;
@@ -300,23 +296,33 @@ export class HUD {
       } else {
         // Unit
         ctx.fillStyle = e.team === "player" ? "#63b3ed" : "#fc8181";
-        ctx.fillRect(e.x * scaleX - 1, e.y * scaleY - 1, 2.5, 2.5);
+        ctx.fillRect(e.x * scaleX - 1.5, e.y * scaleY - 1.5, 3, 3);
       }
     }
 
-    // Camera frustum indicator on minimap
+    // Radar Base Threat Labels
+    ctx.font = "bold 8px monospace";
+    ctx.fillStyle = "#63b3ed";
+    ctx.fillText("HQ", 20 * scaleX - 6, 17 * scaleY - 4);
+
+    ctx.fillStyle = "#fc8181";
+    ctx.fillText("NORTH BASE", 46 * scaleX, 13 * scaleY);
+    ctx.fillText("SOUTH FORT", 46 * scaleX, 47 * scaleY);
+    ctx.fillText("RIVER CAMP", 10 * scaleX, 44 * scaleY);
+
+    // Camera Frustum Indicator
     const centerTile = this.camera.screenToTile(this.camera.canvas.width / 2, this.camera.canvas.height / 2);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
     ctx.lineWidth = 1.2;
     const viewW = (this.camera.canvas.width / 64) * scaleX / this.camera.zoom;
     const viewH = (this.camera.canvas.height / 32) * scaleY / this.camera.zoom;
     ctx.strokeRect(centerTile.x * scaleX - viewW / 2, centerTile.y * scaleY - viewH / 2, viewW, viewH);
 
-    // Radar circular grid overlay
-    ctx.strokeStyle = "rgba(0, 240, 255, 0.15)";
+    // Radar Grid Ring
+    ctx.strokeStyle = "rgba(0, 240, 255, 0.18)";
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.arc(w / 2, h / 2, w * 0.45, 0, Math.PI * 2);
+    ctx.arc(w / 2, h / 2, w * 0.44, 0, Math.PI * 2);
     ctx.stroke();
   }
 }

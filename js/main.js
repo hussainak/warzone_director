@@ -1,4 +1,4 @@
-// js/main.js - Game Loop, Entity Orchestration, and Rendering Pipeline
+// js/main.js - Game Loop, Entity Orchestration, and Morning Rendering Pipeline
 
 import { Camera } from "./engine/camera.js";
 import { TerrainMap } from "./engine/map.js";
@@ -32,8 +32,8 @@ class Game {
     this.particles = new ParticleSystem();
     this.economy = new EconomySystem();
 
-    // Entities
-    this.hero = new HeroCommander(18, 19);
+    // Player Hero Commander
+    this.hero = new HeroCommander(20, 20);
     this.units = [];
     this.buildings = [];
     this.projectiles = [];
@@ -42,7 +42,7 @@ class Game {
     this.combat = new CombatSystem(this.economy, this.hero, this.particles, this.map);
     this.invasion = new InvasionDirector(
       (type, x, y) => this.spawnUnit(type, x, y, "enemy"),
-      { x: 17, y: 17 },
+      { x: 18, y: 17 },
       this.hero
     );
 
@@ -62,7 +62,7 @@ class Game {
     this.hud = new HUD(this.economy, this.hero, this.invasion, this.camera, this.map, this.input);
     this.tradeModal = new TradeModal(this.economy, this.hero, (type, x, y) => this.spawnUnit(type, x, y, "player"));
 
-    // Wire callbacks
+    // Wire Callbacks
     this.input.onSelectionChanged = (sel) => this.hud.updateSelectionCard(sel);
     this.input.onBuildPlaced = (bType, x, y) => this.spawnBuilding(bType, x, y, "player", false);
     this.input.onDeployTurret = (x, y) => this.spawnBuilding("turret", Math.floor(x), Math.floor(y), "player", true);
@@ -79,6 +79,28 @@ class Game {
         soundToggleBtn.textContent = isMuted ? "🔇 SOUND: OFF" : "🔊 SOUND: ON";
       });
     }
+
+    const waveTriggerBtn = document.getElementById("btn-launch-wave-now");
+    if (waveTriggerBtn) {
+      waveTriggerBtn.addEventListener("click", () => {
+        this.invasion.triggerNextWaveEarly();
+        this.particles.addFloatingText(this.hero.x, this.hero.y, "HOSTILE INVASION TRIGGERED!", "#ff3333", 16);
+        Sound.playRadioChirp();
+      });
+    }
+
+    // Camera Quick Jump Buttons for Sectors
+    const jumpHomeBtn = document.getElementById("jump-sector-home");
+    if (jumpHomeBtn) jumpHomeBtn.addEventListener("click", () => this.camera.centerOn(20, 20));
+
+    const jumpNorthBtn = document.getElementById("jump-sector-north");
+    if (jumpNorthBtn) jumpNorthBtn.addEventListener("click", () => this.camera.centerOn(50, 16));
+
+    const jumpSouthBtn = document.getElementById("jump-sector-south");
+    if (jumpSouthBtn) jumpSouthBtn.addEventListener("click", () => this.camera.centerOn(50, 50));
+
+    const jumpRiverBtn = document.getElementById("jump-sector-river");
+    if (jumpRiverBtn) jumpRiverBtn.addEventListener("click", () => this.camera.centerOn(16, 46));
 
     // Audio init on user gesture
     window.addEventListener(
@@ -101,39 +123,69 @@ class Game {
   }
 
   setupStartingWorld() {
-    // Spawn Player HQ (instant)
-    this.spawnBuilding("hq", 17, 16, "player", true);
-    // Spawn Solar Grid (instant)
-    this.spawnBuilding("power", 14, 20, "player", true);
-    // Spawn Barracks (instant)
-    this.spawnBuilding("barracks", 21, 19, "player", true);
+    // 1. Player Base Structures
+    this.spawnBuilding("hq", 18, 16, "player", true);
+    this.spawnBuilding("power", 14, 21, "player", true);
+    this.spawnBuilding("barracks", 23, 17, "player", true);
+    this.spawnBuilding("factory", 22, 22, "player", true);
+    this.spawnBuilding("turret", 13, 16, "player", true);
+    this.spawnBuilding("turret", 27, 18, "player", true);
 
-    // Spawn initial player escort units
-    this.spawnUnit("rifleman", 19, 18, "player");
+    // 2. Full Player Starting Army (Infantry squads, buggies, tank)
     this.spawnUnit("rifleman", 20, 18, "player");
-    this.spawnUnit("buggy", 21, 22, "player");
+    this.spawnUnit("rifleman", 21, 19, "player");
+    this.spawnUnit("rifleman", 19, 21, "player");
+    this.spawnUnit("rifleman", 18, 20, "player");
 
-    // Spawn Enemy Outpost 1 (North-East)
-    this.spawnBuilding("barracks", 52, 16, "enemy", true);
-    this.spawnBuilding("turret", 49, 18, "enemy", true);
-    this.spawnUnit("enemy_technical", 53, 19, "enemy");
-    this.spawnUnit("enemy_militia", 51, 17, "enemy");
+    this.spawnUnit("sniper", 22, 20, "player");
+    this.spawnUnit("sniper", 23, 21, "player");
 
-    // Spawn Enemy Outpost 2 (South-East Fortification)
-    this.spawnBuilding("factory", 50, 50, "enemy", true);
-    this.spawnBuilding("sam", 47, 52, "enemy", true);
-    this.spawnUnit("enemy_tank", 52, 54, "enemy");
-    this.spawnUnit("enemy_rpg", 48, 51, "enemy");
+    this.spawnUnit("rpg", 19, 22, "player");
+    this.spawnUnit("rpg", 20, 23, "player");
 
-    // Center camera on base
-    this.camera.centerOn(18, 18);
+    this.spawnUnit("buggy", 25, 21, "player");
+    this.spawnUnit("buggy", 25, 23, "player");
+
+    this.spawnUnit("tank", 21, 25, "player");
+
+    // 3. Enemy Fortified Base 1: Red Talon Stronghold (North-East)
+    this.spawnBuilding("hq", 51, 13, "enemy", true);
+    this.spawnBuilding("barracks", 48, 17, "enemy", true);
+    this.spawnBuilding("turret", 46, 14, "enemy", true);
+    this.spawnBuilding("turret", 54, 18, "enemy", true);
+    this.spawnUnit("enemy_technical", 52, 19, "enemy");
+    this.spawnUnit("enemy_technical", 47, 19, "enemy");
+    this.spawnUnit("enemy_militia", 50, 16, "enemy");
+    this.spawnUnit("enemy_militia", 53, 17, "enemy");
+    this.spawnUnit("enemy_rpg", 49, 15, "enemy");
+
+    // 4. Enemy Fortified Base 2: Shadow Syndicate Complex (South-East)
+    this.spawnBuilding("hq", 51, 47, "enemy", true);
+    this.spawnBuilding("factory", 48, 52, "enemy", true);
+    this.spawnBuilding("sam", 46, 48, "enemy", true);
+    this.spawnBuilding("turret", 55, 53, "enemy", true);
+    this.spawnUnit("enemy_tank", 52, 53, "enemy");
+    this.spawnUnit("enemy_tank", 49, 56, "enemy");
+    this.spawnUnit("enemy_technical", 54, 49, "enemy");
+    this.spawnUnit("enemy_rpg", 47, 51, "enemy");
+    this.spawnUnit("enemy_rpg", 52, 51, "enemy");
+    this.spawnUnit("enemy_militia", 50, 49, "enemy");
+
+    // 5. Enemy Fortified Base 3: River Raiders Camp (South-West Bridgehead)
+    this.spawnBuilding("barracks", 15, 46, "enemy", true);
+    this.spawnBuilding("turret", 18, 44, "enemy", true);
+    this.spawnUnit("enemy_technical", 16, 49, "enemy");
+    this.spawnUnit("enemy_militia", 14, 48, "enemy");
+    this.spawnUnit("enemy_rpg", 17, 47, "enemy");
+
+    // Center camera squarely on player base
+    this.camera.centerOn(20, 20);
   }
 
   spawnBuilding(buildingType, x, y, team = "player", isInstant = false) {
     const building = new Building(x, y, buildingType, team, isInstant);
     this.buildings.push(building);
 
-    // Mark terrain blocked
     for (let bx = x; bx < x + building.w; bx++) {
       for (let by = y; by < y + building.h; by++) {
         this.map.setBlocked(bx, by, true);
@@ -169,13 +221,9 @@ class Game {
     const allEntities = this.getAllEntities();
     const alliedEntities = allEntities.filter((e) => e.team === "player");
 
-    // Update Camera
     this.camera.update(dt);
-
-    // Update Fog of War
     this.fogOfWar.update(dt, alliedEntities);
 
-    // Update Hero Commander
     this.hero.update(
       dt,
       allEntities,
@@ -186,12 +234,10 @@ class Game {
       (type, x, y) => this.spawnBuilding(type, x, y, "player")
     );
 
-    // Update Units
     for (let i = 0; i < this.units.length; i++) {
       this.units[i].update(dt, allEntities, this.pathfinding, this.particles, this.projectiles);
     }
 
-    // Update Buildings
     for (let i = 0; i < this.buildings.length; i++) {
       this.buildings[i].update(
         dt,
@@ -203,7 +249,6 @@ class Game {
       );
     }
 
-    // Update Projectiles
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const p = this.projectiles[i];
       p.update(dt, allEntities, this.particles, Sound);
@@ -212,38 +257,30 @@ class Game {
       }
     }
 
-    // Update Particles
     this.particles.update(dt);
-
-    // Update Combat & Bounties
     this.combat.update(dt, this.units, this.buildings, allEntities);
 
-    // Update Economy
     const capturedOilCount = this.map.resourceNodes.filter((n) => n.type === "oil" && n.captured).length;
     this.economy.updatePowerGrid(this.buildings);
     this.economy.update(dt, this.buildings, capturedOilCount);
 
-    // Update Invasion Director
     this.invasion.update(dt, this.units, this.pathfinding, this.particles);
-
-    // Update HUD
     this.hud.update(dt, allEntities);
   }
 
   render() {
-    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.ctx.fillStyle = "#8fc0e6";
+    this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-    // Apply 2.5D Isometric World Transform
     this.camera.applyTransform(this.ctx);
 
-    // 1. Terrain Map & Resource Nodes
+    // 1. Morning Terrain Map & Resource Nodes
     this.map.render(this.ctx, this.camera, this.fogOfWar);
 
-    // 2. Ground Scorch Decals & Tracks
+    // 2. Ground Scorch Decals & Move Waypoint Target Rings
     this.particles.renderDecals(this.ctx, this.camera);
 
-    // 3. Isometric Depth-Sorted Entities (Buildings, Hero, Units)
-    // In isometric projection, entities with smaller (x + y) are drawn first, behind larger (x + y)
+    // 3. Isometric Depth-Sorted Entities (Both Allied and Enemy Armies & Bases are Fully Visible)
     const renderableEntities = [this.hero, ...this.units, ...this.buildings].filter((e) => !e.isDead);
 
     renderableEntities.sort((a, b) => {
@@ -253,26 +290,18 @@ class Game {
     });
 
     for (let i = 0; i < renderableEntities.length; i++) {
-      const ent = renderableEntities[i];
-
-      // Fog of War check: only render enemies if tile is VISIBLE
-      if (ent.team === "enemy") {
-        const fog = this.fogOfWar.getState(Math.floor(ent.x), Math.floor(ent.y));
-        if (fog !== 2) continue; // Hidden in fog
-      }
-
-      ent.render(this.ctx, this.camera);
+      renderableEntities[i].render(this.ctx, this.camera);
     }
 
-    // 4. Projectiles (Tracers, Rockets, Missiles)
+    // 4. Projectiles
     for (let i = 0; i < this.projectiles.length; i++) {
       this.projectiles[i].render(this.ctx, this.camera);
     }
 
-    // 5. Air Particles (Explosions, Smoke, Sparks, Floating Text)
+    // 5. Air Particles
     this.particles.render(this.ctx, this.camera);
 
-    // 6. Fog of War Black Shroud
+    // 6. Fog of War Shroud & Active Recon Sweeps
     this.fogOfWar.renderShroud(this.ctx, this.camera);
 
     // 7. World Overlays (Ghost Building Placement & Reticles)

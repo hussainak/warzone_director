@@ -5,14 +5,14 @@ import { MAP_CONFIG } from "../config.js";
 export class Camera {
   constructor(canvas) {
     this.canvas = canvas;
-    this.x = 0;             // World translation offset X
+    this.x = 0;             // World translation offset X (center of screen in world coordinates)
     this.y = 0;             // World translation offset Y
     this.zoom = 1.0;        // Zoom level
-    this.minZoom = 0.65;
-    this.maxZoom = 1.6;
+    this.minZoom = 0.55;
+    this.maxZoom = 1.65;
     this.targetZoom = 1.0;
 
-    this.panSpeed = 650;    // Pixels per second
+    this.panSpeed = 750;    // Pixels per second
     this.keys = {
       up: false,
       down: false,
@@ -20,27 +20,33 @@ export class Camera {
       right: false,
     };
 
-    // Center camera on the initial base position (tile 18, 18)
-    const initialScreen = this.tileToScreen(18, 18);
-    this.x = initialScreen.x - canvas.width / 2;
-    this.y = initialScreen.y - canvas.height / 3;
+    this.edgePan = { x: 0, y: 0 };
   }
 
-  // Convert tile/world coordinates (x, y) into 2D isometric screen space
+  // Convert tile coordinate (tx, ty) into world coordinate space
+  tileToWorld(tx, ty) {
+    const wx = (tx - ty) * MAP_CONFIG.TILE_WIDTH_HALF;
+    const wy = (tx + ty) * MAP_CONFIG.TILE_HEIGHT_HALF;
+    return { x: wx, y: wy };
+  }
+
+  // Alias for compatibility
   tileToScreen(tx, ty) {
-    const sx = (tx - ty) * MAP_CONFIG.TILE_WIDTH_HALF;
-    const sy = (tx + ty) * MAP_CONFIG.TILE_HEIGHT_HALF;
-    return { x: sx, y: sy };
+    return this.tileToWorld(tx, ty);
   }
 
-  // Convert viewport screen mouse coordinates (clientX, clientY) into tile/world coordinates
-  screenToTile(screenX, screenY) {
-    // Offset by camera position and zoom
-    const worldX = (screenX - this.canvas.width / 2) / this.zoom + this.x + this.canvas.width / 2;
-    const worldY = (screenY - this.canvas.height / 2) / this.zoom + this.y + this.canvas.height / 2;
+  // Convert canvas pixel (cx, cy) into world coordinate (wx, wy)
+  canvasToWorld(cx, cy) {
+    const wx = (cx - this.canvas.width / 2) / this.zoom + this.x;
+    const wy = (cy - this.canvas.height / 2) / this.zoom + this.y;
+    return { x: wx, y: wy };
+  }
 
-    const normX = worldX / MAP_CONFIG.TILE_WIDTH_HALF;
-    const normY = worldY / MAP_CONFIG.TILE_HEIGHT_HALF;
+  // Convert canvas screen mouse coordinates into tile/grid coordinates
+  screenToTile(screenX, screenY) {
+    const world = this.canvasToWorld(screenX, screenY);
+    const normX = world.x / MAP_CONFIG.TILE_WIDTH_HALF;
+    const normY = world.y / MAP_CONFIG.TILE_HEIGHT_HALF;
 
     const tileX = (normX + normY) / 2;
     const tileY = (normY - normX) / 2;
@@ -55,15 +61,20 @@ export class Camera {
 
   // Transform world point into current rendering canvas space
   worldToCanvas(wx, wy) {
-    const cx = (wx - (this.x + this.canvas.width / 2)) * this.zoom + this.canvas.width / 2;
-    const cy = (wy - (this.y + this.canvas.height / 2)) * this.zoom + this.canvas.height / 2;
+    const cx = (wx - this.x) * this.zoom + this.canvas.width / 2;
+    const cy = (wy - this.y) * this.zoom + this.canvas.height / 2;
     return { x: cx, y: cy };
   }
 
   centerOn(tx, ty) {
-    const s = this.tileToScreen(tx, ty);
-    this.x = s.x;
-    this.y = s.y;
+    const w = this.tileToWorld(tx, ty);
+    this.x = w.x;
+    this.y = w.y;
+  }
+
+  panBy(dx, dy) {
+    this.x += dx / this.zoom;
+    this.y += dy / this.zoom;
   }
 
   update(dt) {
@@ -74,6 +85,9 @@ export class Camera {
     if (this.keys.right) dx += 1;
     if (this.keys.up) dy -= 1;
     if (this.keys.down) dy += 1;
+
+    dx += this.edgePan.x;
+    dy += this.edgePan.y;
 
     if (dx !== 0 && dy !== 0) {
       dx *= 0.7071;
@@ -91,7 +105,7 @@ export class Camera {
     ctx.save();
     ctx.translate(this.canvas.width / 2, this.canvas.height / 2);
     ctx.scale(this.zoom, this.zoom);
-    ctx.translate(-this.x - this.canvas.width / 2, -this.y - this.canvas.height / 2);
+    ctx.translate(-this.x, -this.y);
   }
 
   restoreTransform(ctx) {

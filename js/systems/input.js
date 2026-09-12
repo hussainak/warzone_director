@@ -23,11 +23,15 @@ export class InputSystem {
     this.mousePos = { x: 0, y: 0 };
     this.hoverTile = { x: 0, y: 0 };
 
+    // Middle-click camera drag panning
+    this.isPanning = false;
+    this.panStart = { x: 0, y: 0 };
+
     // Building placement ghost
-    this.activeBuildGhost = null; // buildingTypeId e.g. "power", "barracks"
+    this.activeBuildGhost = null;
 
     // Hero ability targeting mode
-    this.activeAbilityTargeting = null; // "q", "w", "r"
+    this.activeAbilityTargeting = null;
 
     // Callbacks
     this.onSelectionChanged = null;
@@ -53,33 +57,22 @@ export class InputSystem {
 
     switch (e.key.toLowerCase()) {
       case "w":
-        if (e.ctrlKey || e.metaKey) return;
-        // If not using ability W directly, handle camera up
-        this.camera.keys.up = true;
-        break;
-      case "s":
-        this.camera.keys.down = true;
-        break;
-      case "a":
-        this.camera.keys.left = true;
-        break;
-      case "d":
-        this.camera.keys.right = true;
-        break;
       case "arrowup":
         this.camera.keys.up = true;
         break;
+      case "s":
       case "arrowdown":
         this.camera.keys.down = true;
         break;
+      case "a":
       case "arrowleft":
         this.camera.keys.left = true;
         break;
+      case "d":
       case "arrowright":
         this.camera.keys.right = true;
         break;
       case " ":
-        // Spacebar: Center camera on Hero Commander
         e.preventDefault();
         this.camera.centerOn(this.hero.x, this.hero.y);
         break;
@@ -87,21 +80,17 @@ export class InputSystem {
         this.cancelActiveMode();
         break;
       case "q":
-        // Hero Ability Q: Recon
         this.startAbilityTargeting("q");
         break;
       case "e":
-        // Hero Ability E: Field Medevac (Instant self & AoE heal)
         if (this.hero && !this.hero.isDead) {
           this.hero.useAbilityE(window.__allEntities || [], this.particles);
         }
         break;
       case "r":
-        // Hero Ability R: Cruise Missile
         this.startAbilityTargeting("r");
         break;
       case "b":
-        // Toggle build dock
         const dock = document.getElementById("build-dock");
         if (dock) dock.classList.toggle("open");
         break;
@@ -139,9 +128,43 @@ export class InputSystem {
     this.mousePos.x = e.clientX - rect.left;
     this.mousePos.y = e.clientY - rect.top;
     this.hoverTile = this.camera.screenToTile(this.mousePos.x, this.mousePos.y);
+
+    // Camera drag pan with middle mouse button
+    if (this.isPanning) {
+      const dx = this.panStart.x - e.clientX;
+      const dy = this.panStart.y - e.clientY;
+      this.camera.panBy(dx, dy);
+      this.panStart.x = e.clientX;
+      this.panStart.y = e.clientY;
+    }
+
+    // Edge panning (when cursor is within 25px of browser viewport edge)
+    const edgeMargin = 25;
+    this.camera.edgePan.x = 0;
+    this.camera.edgePan.y = 0;
+
+    if (e.clientX < edgeMargin) {
+      this.camera.edgePan.x = -1;
+    } else if (e.clientX > window.innerWidth - edgeMargin) {
+      this.camera.edgePan.x = 1;
+    }
+
+    if (e.clientY < edgeMargin) {
+      this.camera.edgePan.y = -1;
+    } else if (e.clientY > window.innerHeight - edgeMargin) {
+      this.camera.edgePan.y = 1;
+    }
   }
 
   handleMouseDown(e) {
+    // Middle click to drag-pan
+    if (e.button === 1) {
+      this.isPanning = true;
+      this.panStart.x = e.clientX;
+      this.panStart.y = e.clientY;
+      return;
+    }
+
     if (e.button === 0) {
       // Left click
       if (this.activeBuildGhost) {
@@ -161,15 +184,18 @@ export class InputSystem {
   }
 
   handleMouseUp(e) {
+    if (e.button === 1) {
+      this.isPanning = false;
+      return;
+    }
+
     if (e.button === 0 && this.isDragging) {
       this.isDragging = false;
       const dragDist = Math.hypot(this.mousePos.x - this.dragStart.x, this.mousePos.y - this.dragStart.y);
 
       if (dragDist > 12) {
-        // Multi-unit box selection
         this.selectUnitsInBox(this.dragStart, this.mousePos);
       } else {
-        // Single entity selection
         this.selectEntityAt(this.hoverTile.x, this.hoverTile.y);
       }
     }
@@ -183,9 +209,12 @@ export class InputSystem {
       return;
     }
 
-    // Right Click Command to selected units and Hero
+    // Right Click Command to selected units or Hero
     const tileX = this.hoverTile.fx;
     const tileY = this.hoverTile.fy;
+
+    // Show animated green move waypoint ring at destination
+    this.particles.addMoveWaypoint(tileX, tileY, "#38ef7d");
 
     // Check if clicked an enemy entity
     let targetEnemy = null;
@@ -193,7 +222,7 @@ export class InputSystem {
     for (const ent of allEntities) {
       if (ent.isDead || ent.team === "player") continue;
       const dist = Math.hypot(ent.x - tileX, ent.y - tileY);
-      if (dist <= (ent.radius || 1.0)) {
+      if (dist <= (ent.radius || 1.2)) {
         targetEnemy = ent;
         break;
       }
@@ -206,7 +235,6 @@ export class InputSystem {
         this.particles.addFloatingText(tileX, tileY, "ENGAGING", "#ff4444", 12);
       } else {
         this.hero.setMoveOrder(tileX, tileY, this.pathfinding);
-        this.particles.addFloatingText(tileX, tileY, "MOVING", "#00f0ff", 11);
       }
       Sound.playRadioChirp();
     }
@@ -214,9 +242,8 @@ export class InputSystem {
     // Issue command to selected units
     if (this.selectedUnits.length > 0) {
       this.selectedUnits.forEach((unit, idx) => {
-        // Formational offset so they don't bunch into 1 tile
-        const offX = (idx % 3 - 1) * 0.8;
-        const offY = Math.floor(idx / 3) * 0.8;
+        const offX = ((idx % 3) - 1) * 0.9;
+        const offY = Math.floor(idx / 3) * 0.9;
 
         if (targetEnemy) {
           unit.setAttackOrder(targetEnemy, this.pathfinding);
@@ -257,7 +284,7 @@ export class InputSystem {
     const allEntities = window.__allEntities || [];
 
     // Check Hero first
-    if (this.hero && !this.hero.isDead && Math.hypot(this.hero.x - tx, this.hero.y - ty) <= 1.4) {
+    if (this.hero && !this.hero.isDead && Math.hypot(this.hero.x - tx, this.hero.y - ty) <= 1.5) {
       this.hero.isSelected = true;
       if (this.onSelectionChanged) this.onSelectionChanged({ type: "hero", entity: this.hero });
       Sound.playRadioChirp();
@@ -267,7 +294,7 @@ export class InputSystem {
     // Check allied units
     for (const ent of allEntities) {
       if (ent.isDead || ent.team !== "player" || ent.isHero) continue;
-      if (Math.hypot(ent.x - tx, ent.y - ty) <= (ent.radius || 1.0)) {
+      if (Math.hypot(ent.x - tx, ent.y - ty) <= (ent.radius || 1.1)) {
         ent.isSelected = true;
         this.selectedUnits.push(ent);
         if (this.onSelectionChanged) this.onSelectionChanged({ type: "unit", entity: ent });
@@ -350,13 +377,11 @@ export class InputSystem {
     const tx = this.hoverTile.x;
     const ty = this.hoverTile.y;
 
-    // Check affordability
     if (this.economy.funds < conf.cost || this.economy.techSupplies < (conf.techCost || 0)) {
       this.particles.addFloatingText(tx, ty, "INSUFFICIENT RESOURCES", "#ff3333", 14);
       return;
     }
 
-    // Validate placement footprint
     let isValid = true;
     for (let x = tx; x < tx + conf.w; x++) {
       for (let y = ty; y < ty + conf.h; y++) {
@@ -373,11 +398,9 @@ export class InputSystem {
       return;
     }
 
-    // Deduct cost and spawn
     this.economy.deductFunds(conf.cost);
     if (conf.techCost) this.economy.deductTech(conf.techCost);
 
-    // Block collision grid
     for (let x = tx; x < tx + conf.w; x++) {
       for (let y = ty; y < ty + conf.h; y++) {
         this.map.setBlocked(x, y, true);
@@ -422,11 +445,10 @@ export class InputSystem {
   }
 
   render(ctx) {
-    // Render Selection Box
     if (this.isDragging) {
       ctx.strokeStyle = "#00f0ff";
-      ctx.lineWidth = 1.5;
-      ctx.fillStyle = "rgba(0, 240, 255, 0.12)";
+      ctx.lineWidth = 1.8;
+      ctx.fillStyle = "rgba(0, 240, 255, 0.15)";
       const w = this.mousePos.x - this.dragStart.x;
       const h = this.mousePos.y - this.dragStart.y;
       ctx.fillRect(this.dragStart.x, this.dragStart.y, w, h);
@@ -434,7 +456,6 @@ export class InputSystem {
     }
   }
 
-  // Render isometric building footprint ghost or ability targeting reticle
   renderWorldOverlays(ctx) {
     const hw = MAP_CONFIG.TILE_WIDTH_HALF;
     const hh = MAP_CONFIG.TILE_HEIGHT_HALF;
@@ -465,33 +486,30 @@ export class InputSystem {
           ctx.lineTo(sx - hw, sy);
           ctx.closePath();
 
-          ctx.fillStyle = isValid ? "rgba(56, 239, 125, 0.45)" : "rgba(235, 87, 87, 0.55)";
+          ctx.fillStyle = isValid ? "rgba(56, 239, 125, 0.5)" : "rgba(235, 87, 87, 0.6)";
           ctx.fill();
           ctx.strokeStyle = isValid ? "#38ef7d" : "#eb5757";
-          ctx.lineWidth = 1.5;
+          ctx.lineWidth = 2;
           ctx.stroke();
         }
       }
       ctx.restore();
     } else if (this.activeAbilityTargeting) {
-      // Tactical ability targeting reticle
       const { x: sx, y: sy } = this.camera.tileToScreen(this.hoverTile.fx, this.hoverTile.fy);
-      const radius = this.activeAbilityTargeting === "r" ? 3.5 : 6;
+      const radius = this.activeAbilityTargeting === "r" ? 4.0 : 6.0;
 
       ctx.save();
       ctx.translate(sx, sy);
 
-      // Rotating targeting reticle
       const rot = (Date.now() * 0.005) % (Math.PI * 2);
       ctx.rotate(rot);
 
       ctx.strokeStyle = this.activeAbilityTargeting === "r" ? "#ff3333" : "#00f0ff";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.ellipse(0, 0, radius * hw, radius * hh, 0, 0, Math.PI * 2);
       ctx.stroke();
 
-      // Crosshairs
       ctx.beginPath();
       ctx.moveTo(-radius * hw - 10, 0);
       ctx.lineTo(radius * hw + 10, 0);

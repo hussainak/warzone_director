@@ -5,6 +5,21 @@ export class ParticleSystem {
     this.particles = [];
     this.floatingTexts = [];
     this.groundDecals = []; // Tank track marks, scorch marks
+    this.moveWaypoints = []; // Animated RTS move destination rings
+  }
+
+  // Animated green/cyan RTS move command target ring
+  addMoveWaypoint(x, y, color = "#38ef7d") {
+    this.moveWaypoints.push({
+      x,
+      y,
+      radius: 4,
+      maxRadius: 18,
+      color,
+      alpha: 1.0,
+      life: 0.45,
+      maxLife: 0.45,
+    });
   }
 
   // Floating damage or bounty indicator
@@ -63,17 +78,15 @@ export class ParticleSystem {
     const count = intensity === "large" ? 35 : 18;
     const baseRadius = intensity === "large" ? 6 : 3.5;
 
-    // Ground scorch decal
     this.groundDecals.push({
       x,
       y,
       radius: baseRadius * 1.5,
       alpha: 0.8,
-      life: 15.0, // Lasts 15 seconds
+      life: 15.0,
       maxLife: 15.0,
     });
 
-    // Expanding shockwave ring
     this.particles.push({
       x,
       y,
@@ -86,7 +99,6 @@ export class ParticleSystem {
       type: "shockwave",
     });
 
-    // Fireball puffs
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = (0.5 + Math.random() * 2.5) * (intensity === "large" ? 1.8 : 1.0);
@@ -106,7 +118,6 @@ export class ParticleSystem {
       });
     }
 
-    // High velocity sparks/shrapnel
     for (let i = 0; i < (intensity === "large" ? 20 : 10); i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = 4 + Math.random() * 6;
@@ -125,7 +136,6 @@ export class ParticleSystem {
     }
   }
 
-  // Nanotech healing aura sparkles
   addHealPulse(x, y, radius = 4) {
     for (let i = 0; i < 20; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -146,6 +156,15 @@ export class ParticleSystem {
   }
 
   update(dt) {
+    // Update move waypoints
+    for (let i = this.moveWaypoints.length - 1; i >= 0; i--) {
+      const wp = this.moveWaypoints[i];
+      wp.life -= dt;
+      wp.radius += (wp.maxRadius - wp.radius) * dt * 8;
+      wp.alpha = Math.max(0, wp.life / wp.maxLife);
+      if (wp.life <= 0) this.moveWaypoints.splice(i, 1);
+    }
+
     // Update ground decals
     for (let i = this.groundDecals.length - 1; i >= 0; i--) {
       const d = this.groundDecals[i];
@@ -193,7 +212,7 @@ export class ParticleSystem {
     }
   }
 
-  // Render ground decals beneath units
+  // Render ground decals & move waypoints beneath units
   renderDecals(ctx, camera) {
     this.groundDecals.forEach((d) => {
       const { x: sx, y: sy } = camera.tileToScreen(d.x, d.y);
@@ -203,6 +222,28 @@ export class ParticleSystem {
       ctx.beginPath();
       ctx.ellipse(0, 0, d.radius * 3, d.radius * 1.5, 0, 0, Math.PI * 2);
       ctx.fill();
+      ctx.restore();
+    });
+
+    // Render animated RTS move waypoint rings
+    this.moveWaypoints.forEach((wp) => {
+      const { x: sx, y: sy } = camera.tileToScreen(wp.x, wp.y);
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.globalAlpha = wp.alpha;
+      ctx.strokeStyle = wp.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, wp.radius * 1.5, wp.radius * 0.75, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Cross marker in center
+      ctx.beginPath();
+      ctx.moveTo(-4, 0);
+      ctx.lineTo(4, 0);
+      ctx.moveTo(0, -2);
+      ctx.lineTo(0, 2);
+      ctx.stroke();
       ctx.restore();
     });
   }
@@ -252,10 +293,9 @@ export class ParticleSystem {
       ctx.save();
       ctx.translate(sx, sy);
       ctx.globalAlpha = alpha;
-      ctx.font = `bold ${t.fontSize}px 'Outfit', sans-serif, monospace`;
+      ctx.font = `bold ${t.fontSize}px 'Outfit', sans-serif`;
       ctx.textAlign = "center";
 
-      // Dark text shadow
       ctx.fillStyle = "rgba(0, 0, 0, 0.85)";
       ctx.fillText(t.text, 1, 1);
 

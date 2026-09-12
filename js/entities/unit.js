@@ -33,7 +33,11 @@ export class Unit extends Entity {
     this.path = [];              // Waypoints from A*
     this.attackTimer = 0;
     this.rotorAngle = 0;         // Chopper rotor spin
-    this.altitude = this.isFlying ? 28 : 0; // Flight elevation in pixels
+    this.altitude = this.isFlying ? 28 : 0;
+
+    // Enemy autonomous patrol wander timer
+    this.patrolTimer = Math.random() * 8;
+    this.homeBasePos = { x, y };
   }
 
   setMoveOrder(targetX, targetY, pathfinding) {
@@ -55,7 +59,7 @@ export class Unit extends Entity {
 
     this.attackTimer -= dt;
     if (this.isFlying) {
-      this.rotorAngle += dt * 30; // Spin blades
+      this.rotorAngle += dt * 30;
     }
 
     // Auto-acquire target if idle
@@ -64,20 +68,29 @@ export class Unit extends Entity {
       this.findAutoTarget(allEntities);
     }
 
+    // Enemy autonomous idle patrol wander around base
+    if (this.team === "enemy" && !this.target && this.path.length === 0) {
+      this.patrolTimer += dt;
+      if (this.patrolTimer >= 14 + Math.random() * 10) {
+        this.patrolTimer = 0;
+        const wanderX = Math.max(2, Math.min(68, this.homeBasePos.x + (Math.random() * 8 - 4)));
+        const wanderY = Math.max(2, Math.min(68, this.homeBasePos.y + (Math.random() * 8 - 4)));
+        this.setMoveOrder(wanderX, wanderY, pathfinding);
+      }
+    }
+
     // Combat behavior
     if (this.target && !this.target.isDead) {
       const dist = Math.hypot(this.target.x - this.x, this.target.y - this.y);
       this.turretAngle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
 
       if (dist <= this.range) {
-        // Stop moving and engage target
         this.path = [];
         if (this.attackTimer <= 0) {
           this.fireWeapon(this.target, particleSystem, projectiles);
           this.attackTimer = this.attackRate;
         }
       } else {
-        // Move into attack range
         if (this.path.length === 0) {
           this.path = pathfinding.findPath(this.x, this.y, this.target.x, this.target.y, this.isFlying) || [];
         }
@@ -113,7 +126,6 @@ export class Unit extends Entity {
     for (let i = 0; i < allEntities.length; i++) {
       const e = allEntities[i];
       if (e.isDead || e.team === this.team) continue;
-      // Skip air targets if not capable or grounded
       const dist = Math.hypot(e.x - this.x, e.y - this.y);
       if (dist < closestDist) {
         closestDist = dist;
@@ -196,7 +208,6 @@ export class Unit extends Entity {
         })
       );
     } else {
-      // Assault rifle / buggy / chopper chain gun
       Sound.playGunshot("rifle");
       projectiles.push(
         new Projectile({
@@ -215,9 +226,7 @@ export class Unit extends Entity {
     }
   }
 
-  onDeath(attacker) {
-    // Sound & particles handled by manager
-  }
+  onDeath(attacker) {}
 
   render(ctx, camera) {
     if (this.isDead) return;
@@ -228,40 +237,34 @@ export class Unit extends Entity {
     ctx.save();
     ctx.translate(sx, renderY);
 
-    // Selection ring
     if (this.isSelected) {
-      ctx.strokeStyle = "#00f0ff";
+      ctx.strokeStyle = this.team === "player" ? "#00f0ff" : "#ff3333";
       ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.ellipse(0, 4, 16, 8, 0, 0, Math.PI * 2);
       ctx.stroke();
     }
 
-    // Ground shadow
     ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
     ctx.beginPath();
     ctx.ellipse(0, this.altitude + 2, 12, 6, 0, 0, Math.PI * 2);
     ctx.fill();
 
     const isAllied = this.team === "player";
-    const primaryColor = isAllied ? "#2b6cb0" : "#c53030";
+    const primaryColor = isAllied ? "#2b6cb0" : "#9b2c2c";
     const highlightColor = isAllied ? "#4299e1" : "#e53e3e";
 
-    // Unit Category Visual Rendering
     if (this.category === "infantry") {
-      // Spec-Ops / Sniper / RPG soldier
       ctx.fillStyle = primaryColor;
       ctx.beginPath();
-      ctx.arc(0, -6, 5, 0, Math.PI * 2); // Torso/body
+      ctx.arc(0, -6, 5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Helmet / head
-      ctx.fillStyle = "#2d3748";
+      ctx.fillStyle = isAllied ? "#2d3748" : "#4a1215";
       ctx.beginPath();
       ctx.arc(0, -13, 3.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // Gun barrel pointing at target/angle
       ctx.strokeStyle = "#1a202c";
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -269,25 +272,20 @@ export class Unit extends Entity {
       ctx.lineTo(Math.cos(this.turretAngle) * 9, -7 + Math.sin(this.turretAngle) * 9);
       ctx.stroke();
     } else if (this.unitId === "tank" || this.unitId === "enemy_tank") {
-      // Main Battle Tank: Chasis, tracks, and rotating cannon
       ctx.save();
-      ctx.rotate(this.angle * 0.4); // Subtle isometric slant
+      ctx.rotate(this.angle * 0.4);
 
-      // Treads
       ctx.fillStyle = "#1a202c";
       ctx.fillRect(-14, -8, 28, 4);
       ctx.fillRect(-14, 4, 28, 4);
 
-      // Tank Hull
       ctx.fillStyle = primaryColor;
       ctx.fillRect(-11, -6, 22, 12);
 
-      // Rotating Turret
       ctx.rotate(this.turretAngle - this.angle * 0.4);
       ctx.fillStyle = highlightColor;
       ctx.fillRect(-6, -4, 12, 8);
 
-      // Cannon Barrel
       ctx.strokeStyle = "#1a202c";
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -297,21 +295,17 @@ export class Unit extends Entity {
 
       ctx.restore();
     } else if (this.category === "air") {
-      // Apache Gunship Chopper
       ctx.save();
       ctx.rotate(this.angle * 0.3);
 
-      // Fuselage
       ctx.fillStyle = primaryColor;
       ctx.beginPath();
       ctx.ellipse(0, 0, 16, 6, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // Cockpit glass
-      ctx.fillStyle = "#00f0ff";
+      ctx.fillStyle = isAllied ? "#00f0ff" : "#ff3333";
       ctx.fillRect(4, -2, 6, 4);
 
-      // Spinning rotor blades
       ctx.strokeStyle = "rgba(230, 240, 255, 0.75)";
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -321,7 +315,6 @@ export class Unit extends Entity {
 
       ctx.restore();
     } else {
-      // Buggy / Artillery vehicle
       ctx.fillStyle = primaryColor;
       ctx.fillRect(-10, -6, 20, 12);
       ctx.fillStyle = "#1a202c";
@@ -330,7 +323,6 @@ export class Unit extends Entity {
       ctx.fillRect(-12, 4, 5, 3);
       ctx.fillRect(7, 4, 5, 3);
 
-      // Weapon mount
       ctx.strokeStyle = "#fff";
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -341,7 +333,6 @@ export class Unit extends Entity {
 
     ctx.restore();
 
-    // Render Health Bar
     this.renderHealthBar(ctx, sx, renderY, this.category === "air" ? -28 : -20, 26, 3.5);
   }
 }

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Warzone - Modern Military RTS & Base Builder</title>
-  <meta name="description" content="Warzone is a high-octane modern military RTS inspired by Age of Empires and C&C Generals. Build bases, train strike forces, command your hero, and repel hostile invasions.">
+  <meta name="description" content="Warzone is an isometric modern military RTS inspired by Age of Empires and C&C Generals. Build bases, lead your hero, command armies, and repel hostile invasions.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -14,17 +14,28 @@
   <!-- Main Viewport Canvas -->
   <canvas id="game-canvas"></canvas>
 
+  <!-- On-Screen Floating Camera Pan Controls (for Laptop / Trackpad Ease) -->
+  <div id="camera-dpad">
+    <button id="cam-pan-up" class="dpad-btn dpad-up" title="Pan North (W / Up Arrow)">▲</button>
+    <div class="dpad-middle">
+      <button id="cam-pan-left" class="dpad-btn dpad-left" title="Pan West (A / Left Arrow)">◀</button>
+      <button id="cam-pan-center" class="dpad-btn dpad-center" title="Center on Base [Spacebar]">🎯</button>
+      <button id="cam-pan-right" class="dpad-btn dpad-right" title="Pan East (D / Right Arrow)">▶</button>
+    </div>
+    <button id="cam-pan-down" class="dpad-btn dpad-down" title="Pan South (S / Down Arrow)">▼</button>
+  </div>
+
   <!-- Top Strategic Command Bar -->
   <header id="top-bar" class="tactical-panel">
     <div class="top-left">
       <div class="game-logo">
         <span class="logo-icon">⚡</span>
         <span class="logo-title">WARZONE</span>
-        <span class="logo-subtitle">TACTICAL RTS</span>
+        <span class="logo-subtitle">MORNING RTS</span>
       </div>
       <div class="mission-status">
         <span class="status-indicator"></span>
-        <span class="status-text">DEFENSE OPERATIONAL</span>
+        <span class="status-text">BASE OPERATIONAL</span>
       </div>
     </div>
 
@@ -34,7 +45,7 @@
         <span class="res-icon">💵</span>
         <div class="res-info">
           <span class="res-label">FUNDS</span>
-          <span id="hud-funds" class="res-val">$1,200</span>
+          <span id="hud-funds" class="res-val">$2,500</span>
         </div>
       </div>
 
@@ -42,7 +53,7 @@
         <span class="res-icon">📦</span>
         <div class="res-info">
           <span class="res-label">TECH CRATES</span>
-          <span id="hud-tech" class="res-val">150 T</span>
+          <span id="hud-tech" class="res-val">350 T</span>
         </div>
       </div>
 
@@ -50,17 +61,21 @@
         <span class="res-icon">⚡</span>
         <div class="res-info">
           <span class="res-label">POWER GRID</span>
-          <span id="hud-power" class="res-val power-good">+50 MW</span>
+          <span id="hud-power" class="res-val power-good">+120 MW</span>
         </div>
       </div>
 
-      <div class="resource-card wave-card" title="Hostile Invasion Timer - Hostile armies incoming!">
-        <span class="res-icon alert-icon">🚨</span>
+      <div class="resource-card wave-card" title="Hostile Invasion Timer - First wave delayed 5 minutes to allow base building">
+        <span class="res-icon alert-icon">⏱️</span>
         <div class="res-info">
-          <span id="hud-wave-status" class="res-label">INVASION TIMER</span>
-          <span id="hud-wave-timer" class="res-val alert-val">01:00</span>
+          <span id="hud-wave-status" class="res-label">PEACE PERIOD</span>
+          <span id="hud-wave-timer" class="res-val alert-val">05:00</span>
         </div>
       </div>
+
+      <button id="btn-launch-wave-now" class="top-btn btn-early-wave" title="Trigger hostile invasion wave immediately">
+        ⚡ CALL WAVE NOW
+      </button>
     </div>
 
     <!-- Quick Actions -->
@@ -135,7 +150,7 @@
       <div id="selection-panel" class="selection-panel">
         <div class="empty-selection">
           <div class="radar-scan-anim"></div>
-          <span>TACTICAL STANDBY - NO UNIT SELECTED</span>
+          <span>RIGHT-CLICK TO MOVE HERO & ARMIES</span>
         </div>
       </div>
     </div>
@@ -146,60 +161,61 @@
         <span>BASE STRUCTURES [B]</span>
       </div>
       <div id="build-dock" class="build-grid">
-        <button class="btn-build" data-building="power" title="Solar Power Reactor: +120 MW power ($220, 20 T)">
+        <button class="btn-build" data-building="power" title="Solar Power Reactor: +140 MW power ($200, 15 T)">
           <span class="b-icon">⚡</span>
           <span class="b-name">SOLAR REACTOR</span>
+          <span class="b-cost">$200</span>
+        </button>
+
+        <button class="btn-build" data-building="barracks" title="Infantry Barracks: Trains Soldiers, Snipers, and RPGs ($280, 20 T)">
+          <span class="b-icon">🎖️</span>
+          <span class="b-name">BARRACKS</span>
+          <span class="b-cost">$280</span>
+        </button>
+
+        <button class="btn-build" data-building="factory" title="War Factory: Manufactures Buggies, Tanks, and Artillery ($580, 60 T)">
+          <span class="b-icon">🏭</span>
+          <span class="b-name">WAR FACTORY</span>
+          <span class="b-cost">$580</span>
+        </button>
+
+        <button class="btn-build" data-building="helipad" title="Airfield: Deploys AH-64 Apache Gunships ($500, 75 T)">
+          <span class="b-icon">🚁</span>
+          <span class="b-name">AIRFIELD</span>
+          <span class="b-cost">$500</span>
+        </button>
+
+        <button class="btn-build" data-building="trade" title="Trade Hub: Generates passive trade income ($380, 35 T)">
+          <span class="b-icon">🏛️</span>
+          <span class="b-name">TRADE HUB</span>
+          <span class="b-cost">$380</span>
+        </button>
+
+        <button class="btn-build" data-building="turret" title="Minigun Pillbox: Rapid-fire 20mm automated defense ($220, 20 T)">
+          <span class="b-icon">🔫</span>
+          <span class="b-name">PILLBOX</span>
           <span class="b-cost">$220</span>
         </button>
 
-        <button class="btn-build" data-building="barracks" title="Infantry Barracks: Trains Soldiers, Snipers, and RPGs ($320, 30 T)">
-          <span class="b-icon">🎖️</span>
-          <span class="b-name">BARRACKS</span>
-          <span class="b-cost">$320</span>
-        </button>
-
-        <button class="btn-build" data-building="factory" title="War Factory: Manufactures Buggies, Tanks, and Artillery ($650, 80 T)">
-          <span class="b-icon">🏭</span>
-          <span class="b-name">WAR FACTORY</span>
-          <span class="b-cost">$650</span>
-        </button>
-
-        <button class="btn-build" data-building="helipad" title="Airfield: Deploys AH-64 Apache Gunships ($550, 90 T)">
-          <span class="b-icon">🚁</span>
-          <span class="b-name">AIRFIELD</span>
-          <span class="b-cost">$550</span>
-        </button>
-
-        <button class="btn-build" data-building="trade" title="Trade Hub: Generates passive trade income ($420, 40 T)">
-          <span class="b-icon">🏛️</span>
-          <span class="b-name">TRADE HUB</span>
-          <span class="b-cost">$420</span>
-        </button>
-
-        <button class="btn-build" data-building="turret" title="Minigun Pillbox: Rapid-fire 20mm automated defense ($260, 30 T)">
-          <span class="b-icon">🔫</span>
-          <span class="b-name">PILLBOX</span>
-          <span class="b-cost">$260</span>
-        </button>
-
-        <button class="btn-build" data-building="sam" title="SAM Missile Launcher: Heavy anti-armor & anti-air rockets ($480, 65 T)">
+        <button class="btn-build" data-building="sam" title="SAM Missile Launcher: Heavy anti-armor & anti-air rockets ($420, 50 T)">
           <span class="b-icon">🎯</span>
           <span class="b-name">SAM BATTERY</span>
-          <span class="b-cost">$480</span>
+          <span class="b-cost">$420</span>
         </button>
       </div>
     </div>
 
-    <!-- Minimap Radar Viewport -->
+    <!-- Minimap Radar Viewport with Sector Jump Buttons -->
     <div class="dock-section minimap-section">
       <div class="minimap-wrapper">
-        <canvas id="minimap-canvas" width="170" height="150"></canvas>
+        <canvas id="minimap-canvas" width="170" height="96"></canvas>
         <div class="minimap-overlay-sweep"></div>
       </div>
       <div class="minimap-actions">
-        <button id="btn-focus-hero" class="btn-minimap" title="Center camera on Hero Commander [Spacebar]">
-          📍 HERO (SPACE)
-        </button>
+        <button id="jump-sector-home" class="btn-minimap btn-home" title="View Player Base [Spacebar]">🏠 BASE</button>
+        <button id="jump-sector-north" class="btn-minimap btn-enemy" title="View North Red Talon Base">⚔️ NORTH</button>
+        <button id="jump-sector-south" class="btn-minimap btn-enemy" title="View South Shadow Fortress">⚔️ SOUTH</button>
+        <button id="jump-sector-river" class="btn-minimap btn-enemy" title="View River Raiders Camp">⚔️ RIVER</button>
       </div>
     </div>
   </footer>
@@ -219,11 +235,11 @@
         <div class="trade-balances">
           <div class="bal-box">
             <span class="bal-lbl">AVAILABLE FUNDS</span>
-            <span id="trade-cash-display" class="bal-val">$1,200</span>
+            <span id="trade-cash-display" class="bal-val">$2,500</span>
           </div>
           <div class="bal-box">
             <span class="bal-lbl">TECH INVENTORY</span>
-            <span id="trade-tech-display" class="bal-val">150 T</span>
+            <span id="trade-tech-display" class="bal-val">350 T</span>
           </div>
         </div>
 
@@ -231,28 +247,28 @@
           <div class="trade-card">
             <div class="trade-card-header">
               <h3>IMPORT TECH SUPPLIES</h3>
-              <span class="trade-price">RATE: $1.80 / T</span>
+              <span class="trade-price">RATE: $1.60 / T</span>
             </div>
             <p>Purchase 50 Tech crates from international military contractors.</p>
-            <button id="btn-buy-tech" class="trade-act-btn">BUY 50 TECH CRATES ($90)</button>
+            <button id="btn-buy-tech" class="trade-act-btn">BUY 50 TECH CRATES ($80)</button>
           </div>
 
           <div class="trade-card">
             <div class="trade-card-header">
               <h3>LIQUIDATE TECH CRATES</h3>
-              <span class="trade-price">RATE: $1.10 / T</span>
+              <span class="trade-price">RATE: $1.20 / T</span>
             </div>
             <p>Sell 50 surplus Tech crates on the spot market for instant cash funds.</p>
-            <button id="btn-sell-tech" class="trade-act-btn">SELL 50 TECH CRATES (+$55)</button>
+            <button id="btn-sell-tech" class="trade-act-btn">SELL 50 TECH CRATES (+$60)</button>
           </div>
 
           <div class="trade-card highlight-card">
             <div class="trade-card-header">
               <h3>AIRDROP SPEC-OPS SQUAD</h3>
-              <span class="trade-price">$450 CASH</span>
+              <span class="trade-price">$400 CASH</span>
             </div>
             <p>Immediate parachute insertion of 2 Riflemen and 1 Sniper directly to Hero's location.</p>
-            <button id="btn-buy-mercs" class="trade-act-btn btn-mercs">DEPLOY MERCENARIES ($450)</button>
+            <button id="btn-buy-mercs" class="trade-act-btn btn-mercs">DEPLOY MERCENARIES ($400)</button>
           </div>
         </div>
       </div>
@@ -273,30 +289,27 @@
         <div class="intel-section">
           <h3>🎮 COMMAND & CONTROLS</h3>
           <ul>
-            <li><b>Left-Click:</b> Select Unit, Hero, or Building.</li>
-            <li><b>Click & Drag:</b> Box-select multiple combat units into a strike squad.</li>
-            <li><b>Right-Click:</b> Issue Move or Attack order to selected units or Hero.</li>
-            <li><b>WASD / Arrow Keys:</b> Pan the tactical isometric camera.</li>
-            <li><b>Mouse Wheel:</b> Zoom camera in and out.</li>
-            <li><b>Spacebar:</b> Instantly center camera on your Hero Commander.</li>
-            <li><b>Escape:</b> Cancel building placement or clear selection.</li>
+            <li><b>Right-Click:</b> Move Hero and Armies to target position (green destination ring appears).</li>
+            <li><b>Left-Click & Drag:</b> Box-select your strike group of soldiers and tanks.</li>
+            <li><b>WASD / Arrow Keys / Screen Edges:</b> Pan the camera smoothly across the morning battlefield.</li>
+            <li><b>Sector Quick Jump Buttons:</b> Click 🏠 BASE, ⚔️ NORTH, ⚔️ SOUTH, or ⚔️ RIVER to inspect any base instantly.</li>
+            <li><b>Mouse Wheel:</b> Zoom in and out.</li>
           </ul>
         </div>
         <div class="intel-section">
-          <h3>🎖️ HERO COMMANDER & ABILITIES</h3>
+          <h3>🚩 RIVAL ARMIES & BASE SURVEILLANCE</h3>
           <ul>
-            <li><b>[Q] Recon Drone:</b> Scans any distant sector through the Fog of War.</li>
-            <li><b>[W] Sentry Gun:</b> Drops an automated rapid-fire 25mm defense gun.</li>
-            <li><b>[E] Field Medevac:</b> Releases nanotech field repair that heals Hero and nearby allies.</li>
-            <li><b>[R] Cruise Missile:</b> Calls down an orbital precision cruise missile explosion.</li>
+            <li><b>Red Talon Stronghold (North):</b> Armed technical trucks, rocket squads, and pillbox defenses.</li>
+            <li><b>Shadow Syndicate Fortress (South):</b> Heavy tank fabrication plants, SAM missile launchers, and shock troops.</li>
+            <li><b>River Raiders Encampment (South-West):</b> Fast strike vehicles guarding the river crossing.</li>
           </ul>
         </div>
         <div class="intel-section">
           <h3>💰 ECONOMY & DEFENSE</h3>
           <ul>
-            <li><b>Oil Derricks:</b> Send your Hero or units to capture oil derricks for steady +$18/s and +4 Tech/s.</li>
-            <li><b>Supply Drops:</b> Walk over parachuted crates to scavenge cash and tech.</li>
-            <li><b>Hostile Invasions:</b> The Shadow Coalition attacks in escalating waves. Fortify your base with Turrets and SAM batteries!</li>
+            <li><b>Oil Derricks:</b> Move units to neutral derricks to capture them (+passive cash and tech).</li>
+            <li><b>Supply Drops:</b> Walk over parachuted crates to scavenge resources.</li>
+            <li><b>Peace Timer:</b> You have 5 minutes to fortify and build before the first wave strikes, or click 'CALL WAVE NOW' whenever you're ready!</li>
           </ul>
         </div>
       </div>
@@ -305,16 +318,36 @@
 
   <script type="module" src="js/main.js"></script>
   <script>
-    // Help modal wire-up
+    // D-Pad and Modal Wireup
     document.getElementById('btn-open-help')?.addEventListener('click', () => {
       document.getElementById('intel-modal')?.classList.remove('hidden');
     });
     document.getElementById('close-intel-modal')?.addEventListener('click', () => {
       document.getElementById('intel-modal')?.classList.add('hidden');
     });
-    document.getElementById('btn-focus-hero')?.addEventListener('click', () => {
-      const e = new KeyboardEvent('keydown', { key: ' ' });
-      window.dispatchEvent(e);
+
+    // Spacebar center trigger
+    const triggerCenter = () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: ' ' }));
+    };
+    document.getElementById('cam-pan-center')?.addEventListener('click', triggerCenter);
+
+    // On-screen camera navigation buttons
+    document.getElementById('cam-pan-up')?.addEventListener('click', () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowUp' }));
+      setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowUp' })), 200);
+    });
+    document.getElementById('cam-pan-down')?.addEventListener('click', () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown' }));
+      setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowDown' })), 200);
+    });
+    document.getElementById('cam-pan-left')?.addEventListener('click', () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
+      setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft' })), 200);
+    });
+    document.getElementById('cam-pan-right')?.addEventListener('click', () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
+      setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight' })), 200);
     });
   </script>
 </body>
