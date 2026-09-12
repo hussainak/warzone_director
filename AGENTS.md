@@ -111,13 +111,28 @@ warzone_director/
 - **Commence Operation Button (`#btn-start-game`)**: Prominent glowing tactical button that starts the game loop, initializes Web Audio API on user gesture, plays radio squelch, and closes the modal.
 - **Keyboard Shortcuts**: Pressing `ENTER` or `SPACEBAR` also triggers game start immediately.
 
-### 4.7 iPad & Touchscreen Navigation (Tap-Drag Pan & Pinch-to-Zoom)
-- **Fluid Tap-Drag Panning**: On iPad and mobile touch devices, players can smoothly drag single fingers across the battlefield to pan the isometric camera in any direction without unwanted browser viewport bouncing (enforced via CSS `touch-action: none;` and `-webkit-touch-callout: none;`).
-- **Continuous Pinch-to-Zoom**: Two-finger pinch gestures scale the camera zoom continuously using direct distance ratios (`zoomByRatio(ratio)`) between `0.40x` and `2.40x`, complemented by native iOS Safari `gesturestart`, `gesturechange`, and `gestureend` handlers.
-- **Touch Selection & Commands**:
-  - Single tap selects units or buildings under finger.
-  - Tapping ground while units are selected issues move/attack orders.
-  - Long press (500ms) issues an immediate tactical move or attack order with animated green waypoints.
+### 4.7 iPad & Touchscreen RTS Navigation (No Right-Click Solution & Safari Fixes)
+- **Viewport & Gesture Lock for iPadOS Safari**:
+  - Configured `<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">` and global `{ passive: false }` gesture interceptors to prevent Safari's page-level zooming, ensuring 100% of two-finger pinches are captured by the in-canvas camera zoom.
+  - `#top-bar` and `#bottom-dock` now integrate CSS `env(safe-area-inset-top)` and `env(safe-area-inset-bottom)` alongside responsive tablet styles (`@media (max-width: 1180px)` and `@media (max-width: 860px)`), preventing the top menu from being cut off by the status bar, notch, or overflowing on 768px-1024px iPad displays.
+- **Smart Contextual Tap Commands (No Right-Click Required)**:
+  - When units or Hero are selected:
+    - Tapping empty terrain or hostile enemies immediately issues a **Tactical Move or Attack Order** with green destination rings and radio squelch.
+    - Tapping another allied unit switches selection to that unit.
+    - Tapping the on-screen `[✕ CANCEL]` button or double-tapping deselects all units.
+  - When no units are selected:
+    - Tapping any unit or building selects it.
+    - Tapping empty ground clears selection.
+- **Direct Tap-to-Place Building Construction**:
+  - Selecting any building from the build dock enters placement mode with an iPad floating banner (`🏗️ TAP PLAY AREA TO PLACE [NAME] • [✕ CANCEL]`).
+  - Tapping anywhere on the canvas immediately validates the tapped tile and constructs the building, with clear floating text feedback (`+NAME DEPLOYED` or `TERRAIN BLOCKED`).
+- **Fluid Tap-Drag Panning & Pinch-to-Zoom**:
+  - 1-finger drag smoothly pans the battlefield camera in real-time.
+  - 2-finger pinch scales zoom dynamically from 0.40x to 2.40x with continuous ratio scaling and simultaneous midpoint panning.
+  - Releasing fingers after a pinch will never accidentally trigger unit movement or building placement.
+- **Floating Touch Action Bar (`#touch-action-bar`)**:
+  - Displays real-time operational context on touch devices (`COMMANDING 4 UNITS`, `TAP MAP TO PLACE FARM PLOT`).
+  - Includes a quick drag mode toggle (`✋ DRAG: PAN` / `📦 DRAG: SELECT`) and a prominent `[✕ CANCEL]` button.
 
 ### 4.8 Civilian Agricultural Economy & Farmers (Age of Empires Hybrid)
 - **Agricultural Farm Plot (`farm`)**: 2x2 base structure ($140) featuring tilled fertile soil, rows of swaying golden wheat and green maize, rustic cedar tool shed, and an automated rotating micro-irrigation sprinkler with cyan water mist. Generates passive base funds ($16/s) and trains civilian workers.

@@ -120,11 +120,16 @@ body, html {
   top: 0;
   left: 0;
   right: 0;
-  height: 60px;
+  min-height: 54px;
+  height: auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: max(6px, env(safe-area-inset-top, 0px)) max(14px, env(safe-area-inset-right, 0px)) 6px max(14px, env(safe-area-inset-left, 0px));
+  box-sizing: border-box;
+  flex-wrap: wrap;
+  row-gap: 6px;
+  column-gap: 12px;
   border-top: none;
   border-left: none;
   border-right: none;
@@ -1265,4 +1270,161 @@ body, html {
   background: linear-gradient(135deg, #00f0ff, #38ef7d);
   color: #000;
   transform: scale(1.04);
+}
+
+/* Floating Touch Command Status Banner (iPad & Touch Devices) */
+.touch-action-bar {
+  position: absolute;
+  top: calc(68px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 55;
+  background: rgba(13, 21, 34, 0.94);
+  border: 1.5px solid var(--accent-cyan);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.7), 0 0 16px rgba(0, 240, 255, 0.3);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 30px;
+  padding: 6px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 92vw;
+  box-sizing: border-box;
+}
+
+.touch-action-bar.hidden {
+  display: none !important;
+}
+
+.touch-action-text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.touch-action-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.touch-pill-btn {
+  background: rgba(0, 240, 255, 0.15);
+  border: 1px solid var(--accent-cyan);
+  color: var(--accent-cyan);
+  font-family: var(--font-display);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 6px 12px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.touch-pill-btn:active, .touch-pill-btn:hover {
+  background: var(--accent-cyan);
+  color: #000;
+}
+
+.touch-cancel-btn {
+  background: rgba(255, 56, 56, 0.2);
+  border-color: rgba(255, 56, 56, 0.6);
+  color: #ff7878;
+}
+
+.touch-cancel-btn:active, .touch-cancel-btn:hover {
+  background: #ff3838;
+  color: #ffffff;
+}
+
+/* Responsive Rules for iPad & Tablet Displays (<= 1180px) */
+@media (max-width: 1180px) {
+  #top-bar {
+    padding: max(6px, env(safe-area-inset-top, 0px)) 10px 6px 10px;
+    gap: 6px;
+  }
+
+  .game-logo .logo-title {
+    font-size: 16px;
+  }
+
+  .game-logo .logo-subtitle {
+    display: none;
+  }
+
+  .mission-status {
+    display: none;
+  }
+
+  .top-center {
+    gap: 6px;
+  }
+
+  .resource-card {
+    min-width: unset;
+    padding: 4px 8px;
+    gap: 6px;
+  }
+
+  .resource-card .res-icon {
+    font-size: 14px;
+  }
+
+  .resource-card .res-label {
+    font-size: 8px;
+  }
+
+  .resource-card .res-val {
+    font-size: 12px;
+  }
+
+  .btn-early-wave {
+    padding: 4px 8px;
+    font-size: 9px;
+  }
+
+  .top-right {
+    gap: 6px;
+  }
+
+  .top-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  #bottom-dock {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Extra Compact for Portrait iPad and Smaller Tablets (<= 860px) */
+@media (max-width: 860px) {
+  #top-bar {
+    justify-content: center;
+  }
+
+  .top-left {
+    display: none;
+  }
+
+  .resource-card {
+    padding: 3px 6px;
+  }
+
+  .top-btn {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
 }

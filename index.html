@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Warzone - Modern Military RTS & Base Builder</title>
   <meta name="description" content="Warzone is an isometric modern military RTS inspired by Age of Empires and C&C Generals. Build bases, lead your hero, command armies, and repel hostile invasions.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -13,6 +13,22 @@
 <body>
   <!-- Main Viewport Canvas -->
   <canvas id="game-canvas"></canvas>
+
+  <!-- Floating Touch Command Status Banner (iPad & Touchscreen RTS Navigation) -->
+  <div id="touch-action-bar" class="touch-action-bar hidden">
+    <div class="touch-action-text">
+      <span id="touch-action-icon">🎯</span>
+      <span id="touch-action-msg">UNITS SELECTED: TAP GROUND TO MOVE / ATTACK</span>
+    </div>
+    <div class="touch-action-btns">
+      <button id="btn-touch-mode-toggle" class="touch-pill-btn" title="Toggle Drag Mode between Pan Map and Box Select">
+        ✋ DRAG: PAN
+      </button>
+      <button id="btn-touch-cancel" class="touch-pill-btn touch-cancel-btn" title="Cancel Current Order / Deselect (Esc)">
+        ✕ CANCEL
+      </button>
+    </div>
+  </div>
 
   <!-- On-Screen Floating Camera Pan Controls (for Laptop / Trackpad Ease) -->
   <div id="camera-dpad">
@@ -495,9 +511,17 @@
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft' }));
       setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft' })), 200);
     });
-    document.getElementById('cam-pan-right')?.addEventListener('click', () => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight' }));
-      setTimeout(() => window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowRight' })), 200);
+    // Prevent iOS Safari page-level pinch zoom so that canvas in-game zoom receives all gestures
+    document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false });
+    document.addEventListener('gestureend', (e) => e.preventDefault(), { passive: false });
+
+    // Touch action bar wire-up (iPad / Touch controls)
+    document.getElementById('btn-touch-cancel')?.addEventListener('click', () => {
+      window.__cancelActiveMode?.();
+    });
+    document.getElementById('btn-touch-mode-toggle')?.addEventListener('click', () => {
+      window.__toggleTouchDragMode?.();
     });
   </script>
 </body>

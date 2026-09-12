@@ -58,32 +58,49 @@ export class HUD {
   setupBuildButtons() {
     const buildBtns = document.querySelectorAll(".btn-build");
     buildBtns.forEach((btn) => {
-      btn.addEventListener("click", (e) => {
+      let lastTrigger = 0;
+      const handleBuildTrigger = (e) => {
+        const now = performance.now();
+        if (now - lastTrigger < 350) return;
+        lastTrigger = now;
         const bType = btn.getAttribute("data-building");
         if (bType) {
           this.input.startBuildPlacement(bType);
           Sound.playRadioChirp();
         }
-      });
+      };
+
+      btn.addEventListener("click", handleBuildTrigger);
+      btn.addEventListener("touchend", handleBuildTrigger, { passive: true });
     });
   }
 
   setupAbilityButtons() {
-    const qBtn = document.getElementById("btn-ability-q");
-    const wBtn = document.getElementById("btn-ability-w");
-    const eBtn = document.getElementById("btn-ability-e");
-    const rBtn = document.getElementById("btn-ability-r");
-
-    if (qBtn) qBtn.addEventListener("click", () => this.input.startAbilityTargeting("q"));
-    if (wBtn) wBtn.addEventListener("click", () => this.input.startAbilityTargeting("w"));
-    if (eBtn) {
-      eBtn.addEventListener("click", () => {
-        if (this.hero && !this.hero.isDead) {
-          this.hero.useAbilityE(window.__allEntities || [], this.input.particles);
+    const setupBtn = (id, key) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      let lastTrigger = 0;
+      const trigger = (e) => {
+        const now = performance.now();
+        if (now - lastTrigger < 350) return;
+        lastTrigger = now;
+        if (key === "e") {
+          if (this.hero && !this.hero.isDead) {
+            this.hero.useAbilityE(window.__allEntities || [], this.input.particles);
+          }
+        } else {
+          this.input.startAbilityTargeting(key);
         }
-      });
-    }
-    if (rBtn) rBtn.addEventListener("click", () => this.input.startAbilityTargeting("r"));
+      };
+
+      btn.addEventListener("click", trigger);
+      btn.addEventListener("touchend", trigger, { passive: true });
+    };
+
+    setupBtn("btn-ability-q", "q");
+    setupBtn("btn-ability-w", "w");
+    setupBtn("btn-ability-e", "e");
+    setupBtn("btn-ability-r", "r");
   }
 
   updateSelectionCard(selected) {

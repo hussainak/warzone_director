@@ -28,16 +28,19 @@ export class InputSystem {
     this.panStart = { x: 0, y: 0 };
 
     // Touch gesture state for iPad and mobile touchscreens
+    this.touchDragMode = "pan"; // "pan" or "select"
     this.touchState = {
       isTouch: false,
+      isPinching: false,
+      isPanning: false,
       startX: 0,
       startY: 0,
       lastX: 0,
       lastY: 0,
-      startTime: 0,
-      isPanning: false,
       initialPinchDist: 0,
-      longPressTimer: null,
+      lastPinchDist: 0,
+      lastMidX: 0,
+      lastMidY: 0,
     };
 
     // Building placement ghost
@@ -50,6 +53,15 @@ export class InputSystem {
     this.onSelectionChanged = null;
     this.onBuildPlaced = null;
     this.onDeployTurret = null;
+
+    // Wire global handlers for iPad touch action bar
+    window.__cancelActiveMode = () => {
+      this.cancelActiveMode();
+      this.updateTouchActionBar();
+    };
+    window.__toggleTouchDragMode = () => {
+      this.toggleTouchDragMode();
+    };
 
     this.setupListeners();
   }
@@ -69,24 +81,6 @@ export class InputSystem {
     this.canvas.addEventListener("touchmove", (e) => this.handleTouchMove(e), { passive: false });
     this.canvas.addEventListener("touchend", (e) => this.handleTouchEnd(e), { passive: false });
     this.canvas.addEventListener("touchcancel", (e) => this.handleTouchEnd(e), { passive: false });
-
-    // iOS Safari native gesture events for pinch-to-zoom
-    this.canvas.addEventListener("gesturestart", (e) => {
-      e.preventDefault();
-      this.lastGestureScale = 1.0;
-    });
-    this.canvas.addEventListener("gesturechange", (e) => {
-      e.preventDefault();
-      if (e.scale && this.lastGestureScale) {
-        const ratio = e.scale / this.lastGestureScale;
-        this.camera.zoomByRatio(ratio);
-        this.lastGestureScale = e.scale;
-      }
-    });
-    this.canvas.addEventListener("gestureend", (e) => {
-      e.preventDefault();
-      this.lastGestureScale = 1.0;
-    });
   }
 
   handleKeyDown(e) {
@@ -205,12 +199,12 @@ export class InputSystem {
     if (e.button === 0) {
       // Left click
       if (this.activeBuildGhost) {
-        this.placeBuildingAtHover();
+        this.placeBuildingAt(this.hoverTile.x, this.hoverTile.y);
         return;
       }
 
       if (this.activeAbilityTargeting) {
-        this.executeAbilityAtHover();
+        this.executeAbilityAt(this.hoverTile.fx, this.hoverTile.fy);
         return;
       }
 
@@ -233,7 +227,7 @@ export class InputSystem {
       if (dragDist > 12) {
         this.selectUnitsInBox(this.dragStart, this.mousePos);
       } else {
-        this.selectEntityAt(this.hoverTile.x, this.hoverTile.y);
+        this.handleTap(this.mousePos.x, this.mousePos.y, false);
       }
     }
   }
@@ -310,169 +304,197 @@ export class InputSystem {
       const cy = touch.clientY - rect.top;
 
       this.touchState.isTouch = true;
+      this.touchState.isPinching = false;
+      this.touchState.isPanning = false;
       this.touchState.startX = cx;
       this.touchState.startY = cy;
       this.touchState.lastX = cx;
       this.touchState.lastY = cy;
-      this.touchState.startTime = performance.now();
-      this.touchState.isPanning = false;
 
       this.mousePos.x = cx;
       this.mousePos.y = cy;
       this.hoverTile = this.camera.screenToTile(cx, cy);
 
-      // Long press (500ms) issues a move/attack order on iPad
-      if (this.touchState.longPressTimer) clearTimeout(this.touchState.longPressTimer);
-      this.touchState.longPressTimer = setTimeout(() => {
-        if (!this.touchState.isPanning) {
-          this.issueMoveOrAttackOrder(this.hoverTile.fx, this.hoverTile.fy);
-        }
-      }, 500);
-
-    } else if (e.touches.length === 2) {
-      if (this.touchState.longPressTimer) {
-        clearTimeout(this.touchState.longPressTimer);
-        this.touchState.longPressTimer = null;
+      if (this.touchDragMode === "select") {
+        this.isDragging = true;
+        this.dragStart.x = cx;
+        this.dragStart.y = cy;
       }
+    } else if (e.touches.length === 2) {
+      this.touchState.isPinching = true;
+      this.touchState.isPanning = true;
+      this.isDragging = false;
+
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       this.touchState.initialPinchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
-      this.touchState.lastX = (t1.clientX + t2.clientX) / 2;
-      this.touchState.lastY = (t1.clientY + t2.clientY) / 2;
+      this.touchState.lastPinchDist = this.touchState.initialPinchDist;
+      this.touchState.lastMidX = (t1.clientX + t2.clientX) / 2;
+      this.touchState.lastMidY = (t1.clientY + t2.clientY) / 2;
     }
   }
 
   handleTouchMove(e) {
     e.preventDefault();
 
-    if (e.touches.length === 1) {
+    if (e.touches.length === 1 && !this.touchState.isPinching) {
       const touch = e.touches[0];
       const rect = this.canvas.getBoundingClientRect();
       const cx = touch.clientX - rect.left;
       const cy = touch.clientY - rect.top;
 
       const totalDist = Math.hypot(cx - this.touchState.startX, cy - this.touchState.startY);
-      if (totalDist > 7) {
+      if (totalDist > 8) {
         this.touchState.isPanning = true;
-        if (this.touchState.longPressTimer) {
-          clearTimeout(this.touchState.longPressTimer);
-          this.touchState.longPressTimer = null;
-        }
       }
 
-      // Smooth camera pan by dragging finger
-      if (this.touchState.isPanning) {
-        const dx = this.touchState.lastX - cx;
-        const dy = this.touchState.lastY - cy;
-        this.camera.panBy(dx, dy);
-      }
-
-      this.touchState.lastX = cx;
-      this.touchState.lastY = cy;
       this.mousePos.x = cx;
       this.mousePos.y = cy;
       this.hoverTile = this.camera.screenToTile(cx, cy);
 
+      if (this.touchDragMode === "select" && this.isDragging) {
+        // Dragging selection rectangle
+      } else {
+        // Dragging camera pan
+        if (this.touchState.isPanning) {
+          const dx = this.touchState.lastX - cx;
+          const dy = this.touchState.lastY - cy;
+          this.camera.panBy(dx, dy);
+        }
+      }
+
+      this.touchState.lastX = cx;
+      this.touchState.lastY = cy;
+
     } else if (e.touches.length === 2) {
-      // Pinch to Zoom & Two-Finger Pan
+      this.touchState.isPinching = true;
+      this.touchState.isPanning = true;
+      this.isDragging = false;
+
       const t1 = e.touches[0];
       const t2 = e.touches[1];
       const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
 
-      if (this.touchState.initialPinchDist > 0 && currentDist > 0) {
-        const ratio = currentDist / this.touchState.initialPinchDist;
+      if (this.touchState.lastPinchDist > 0 && currentDist > 0) {
+        const ratio = currentDist / this.touchState.lastPinchDist;
         this.camera.zoomByRatio(ratio);
-        this.touchState.initialPinchDist = currentDist;
+        this.touchState.lastPinchDist = currentDist;
       }
 
       const midX = (t1.clientX + t2.clientX) / 2;
       const midY = (t1.clientY + t2.clientY) / 2;
-      const dx = this.touchState.lastX - midX;
-      const dy = this.touchState.lastY - midY;
+      const dx = this.touchState.lastMidX - midX;
+      const dy = this.touchState.lastMidY - midY;
       this.camera.panBy(dx, dy);
-      this.touchState.lastX = midX;
-      this.touchState.lastY = midY;
+      this.touchState.lastMidX = midX;
+      this.touchState.lastMidY = midY;
     }
   }
 
   handleTouchEnd(e) {
-    if (this.touchState.longPressTimer) {
-      clearTimeout(this.touchState.longPressTimer);
-      this.touchState.longPressTimer = null;
+    e.preventDefault();
+
+    // If user was pinching, do not treat finger release as a tap
+    if (this.touchState.isPinching) {
+      if (e.touches.length === 0) {
+        this.touchState.isPinching = false;
+        this.touchState.isPanning = false;
+        this.touchState.lastPinchDist = 0;
+      }
+      return;
     }
 
-    if (!this.touchState.isPanning && e.changedTouches.length > 0) {
+    if (this.touchDragMode === "select" && this.isDragging) {
+      this.isDragging = false;
+      const dragDist = Math.hypot(this.mousePos.x - this.dragStart.x, this.mousePos.y - this.dragStart.y);
+      if (dragDist > 14) {
+        this.selectUnitsInBox(this.dragStart, this.mousePos);
+      } else {
+        this.handleTap(this.mousePos.x, this.mousePos.y, true);
+      }
+    } else if (!this.touchState.isPanning && e.changedTouches.length > 0) {
       // Tap detected (no drag)
       const touch = e.changedTouches[0];
       const rect = this.canvas.getBoundingClientRect();
       const tapX = touch.clientX - rect.left;
       const tapY = touch.clientY - rect.top;
-      const tile = this.camera.screenToTile(tapX, tapY);
-
-      if (this.activeBuildGhost) {
-        this.placeBuildingAtHover();
-        return;
-      }
-
-      if (this.activeAbilityTargeting) {
-        this.executeAbilityAtHover();
-        return;
-      }
-
-      // Try selecting an entity at the tapped location
-      const didSelect = this.selectEntityAt(tile.x, tile.y);
-
-      // If units are already selected and user tapped empty ground or enemy, issue move/attack order!
-      if (!didSelect && (this.selectedUnits.length > 0 || (this.hero && this.hero.isSelected))) {
-        this.issueMoveOrAttackOrder(tile.fx, tile.fy);
-      }
+      this.handleTap(tapX, tapY, true);
     }
 
     if (e.touches.length === 0) {
       this.touchState.isTouch = false;
       this.touchState.isPanning = false;
-      this.touchState.initialPinchDist = 0;
+      this.touchState.isPinching = false;
+      this.isDragging = false;
     }
   }
 
-  cancelActiveMode() {
-    this.activeBuildGhost = null;
-    this.activeAbilityTargeting = null;
-    this.clearSelection();
-    if (this.onSelectionChanged) this.onSelectionChanged(null);
-  }
+  // --- Smart Contextual Tap Handler (Supports iPad / Touchscreens with NO Right Click) ---
+  handleTap(screenX, screenY, isTouch = false) {
+    const tile = this.camera.screenToTile(screenX, screenY);
+    this.hoverTile = tile;
 
-  clearSelection() {
-    if (this.hero) this.hero.isSelected = false;
-    this.selectedUnits.forEach((u) => (u.isSelected = false));
-    this.selectedUnits = [];
-    if (this.selectedBuilding) {
-      this.selectedBuilding.isSelected = false;
-      this.selectedBuilding = null;
+    // 1. If building placement mode active -> construct building at tapped location
+    if (this.activeBuildGhost) {
+      this.placeBuildingAt(tile.x, tile.y);
+      return;
+    }
+
+    // 2. If hero ability targeting active -> fire tactical strike at tapped location
+    if (this.activeAbilityTargeting) {
+      this.executeAbilityAt(tile.fx, tile.fy);
+      return;
+    }
+
+    // 3. Check what was tapped
+    const tappedEntity = this.findSelectableEntityAt(tile.x, tile.y);
+    const hasSelectedTroops = (this.hero && this.hero.isSelected) || this.selectedUnits.length > 0;
+
+    if (isTouch) {
+      // --- iPad & Touchscreens (No Right-Click Available) ---
+      if (hasSelectedTroops) {
+        if (tappedEntity && tappedEntity.team === "player") {
+          // Tapped another player unit/hero -> switch selection to it
+          this.selectEntity(tappedEntity);
+        } else {
+          // Tapped ground or enemy -> ISSUE MOVE OR ATTACK ORDER!
+          this.issueMoveOrAttackOrder(tile.fx, tile.fy);
+        }
+      } else {
+        // No units selected currently -> select whatever was tapped
+        if (tappedEntity) {
+          this.selectEntity(tappedEntity);
+        } else {
+          this.clearSelection();
+          if (this.onSelectionChanged) this.onSelectionChanged(null);
+          this.updateTouchActionBar();
+        }
+      }
+    } else {
+      // --- Desktop Mouse Left-Click Mode ---
+      if (tappedEntity) {
+        this.selectEntity(tappedEntity);
+      } else {
+        this.clearSelection();
+        if (this.onSelectionChanged) this.onSelectionChanged(null);
+        this.updateTouchActionBar();
+      }
     }
   }
 
-  selectEntityAt(tx, ty) {
-    this.clearSelection();
+  findSelectableEntityAt(tx, ty) {
     const allEntities = window.__allEntities || [];
 
     // Check Hero first
-    if (this.hero && !this.hero.isDead && Math.hypot(this.hero.x - tx, this.hero.y - ty) <= 1.5) {
-      this.hero.isSelected = true;
-      if (this.onSelectionChanged) this.onSelectionChanged({ type: "hero", entity: this.hero });
-      Sound.playRadioChirp();
-      return true;
+    if (this.hero && !this.hero.isDead && Math.hypot(this.hero.x - tx, this.hero.y - ty) <= 1.4) {
+      return this.hero;
     }
 
     // Check allied units
     for (const ent of allEntities) {
       if (ent.isDead || ent.team !== "player" || ent.isHero) continue;
       if (Math.hypot(ent.x - tx, ent.y - ty) <= (ent.radius || 1.1)) {
-        ent.isSelected = true;
-        this.selectedUnits.push(ent);
-        if (this.onSelectionChanged) this.onSelectionChanged({ type: "unit", entity: ent });
-        Sound.playRadioChirp();
-        return true;
+        return ent;
       }
     }
 
@@ -481,16 +503,46 @@ export class InputSystem {
       if (ent.isDead) continue;
       if (ent.w && ent.h) {
         if (tx >= ent.x && tx < ent.x + ent.w && ty >= ent.y && ty < ent.y + ent.h) {
-          ent.isSelected = true;
-          this.selectedBuilding = ent;
-          if (this.onSelectionChanged) this.onSelectionChanged({ type: "building", entity: ent });
-          Sound.playRadioChirp();
-          return true;
+          return ent;
         }
       }
     }
 
+    return null;
+  }
+
+  selectEntity(entity) {
+    this.clearSelection();
+    if (!entity || entity.isDead) {
+      if (this.onSelectionChanged) this.onSelectionChanged(null);
+      this.updateTouchActionBar();
+      return;
+    }
+
+    entity.isSelected = true;
+    if (entity.isHero) {
+      if (this.onSelectionChanged) this.onSelectionChanged({ type: "hero", entity });
+    } else if (entity.w && entity.h) {
+      this.selectedBuilding = entity;
+      if (this.onSelectionChanged) this.onSelectionChanged({ type: "building", entity });
+    } else {
+      this.selectedUnits.push(entity);
+      if (this.onSelectionChanged) this.onSelectionChanged({ type: "unit", entity });
+    }
+
+    Sound.playRadioChirp();
+    this.updateTouchActionBar();
+  }
+
+  selectEntityAt(tx, ty) {
+    const ent = this.findSelectableEntityAt(tx, ty);
+    if (ent) {
+      this.selectEntity(ent);
+      return true;
+    }
+    this.clearSelection();
     if (this.onSelectionChanged) this.onSelectionChanged(null);
+    this.updateTouchActionBar();
     return false;
   }
 
@@ -536,24 +588,93 @@ export class InputSystem {
     } else {
       if (this.onSelectionChanged) this.onSelectionChanged(null);
     }
+
+    this.updateTouchActionBar();
+  }
+
+  cancelActiveMode() {
+    this.activeBuildGhost = null;
+    this.activeAbilityTargeting = null;
+    this.clearSelection();
+    if (this.onSelectionChanged) this.onSelectionChanged(null);
+    this.updateTouchActionBar();
+  }
+
+  clearSelection() {
+    if (this.hero) this.hero.isSelected = false;
+    this.selectedUnits.forEach((u) => (u.isSelected = false));
+    this.selectedUnits = [];
+    if (this.selectedBuilding) {
+      this.selectedBuilding.isSelected = false;
+      this.selectedBuilding = null;
+    }
+  }
+
+  updateTouchActionBar() {
+    const bar = document.getElementById("touch-action-bar");
+    const icon = document.getElementById("touch-action-icon");
+    const msg = document.getElementById("touch-action-msg");
+    if (!bar || !icon || !msg) return;
+
+    if (this.activeBuildGhost) {
+      const conf = BUILDINGS_CONFIG[this.activeBuildGhost];
+      bar.classList.remove("hidden");
+      icon.textContent = "🏗️";
+      msg.textContent = `TAP PLAY AREA TO PLACE ${conf ? conf.name.toUpperCase() : "BUILDING"}`;
+      return;
+    }
+
+    if (this.activeAbilityTargeting) {
+      bar.classList.remove("hidden");
+      icon.textContent = "🎯";
+      msg.textContent = `TAP TARGET AREA FOR HERO ABILITY [${this.activeAbilityTargeting.toUpperCase()}]`;
+      return;
+    }
+
+    const heroSelected = this.hero && this.hero.isSelected;
+    const unitCount = this.selectedUnits.length;
+
+    if (heroSelected || unitCount > 0) {
+      bar.classList.remove("hidden");
+      icon.textContent = "🎯";
+      if (heroSelected && unitCount > 0) {
+        msg.textContent = `HERO & ${unitCount} TROOPS: TAP GROUND TO MOVE / ATTACK`;
+      } else if (heroSelected) {
+        msg.textContent = `HERO VANGUARD: TAP GROUND TO MOVE / ATTACK`;
+      } else {
+        msg.textContent = `${unitCount} UNIT${unitCount > 1 ? "S" : ""}: TAP GROUND TO MOVE / ATTACK`;
+      }
+      return;
+    }
+
+    bar.classList.add("hidden");
+  }
+
+  toggleTouchDragMode() {
+    this.touchDragMode = this.touchDragMode === "pan" ? "select" : "pan";
+    const btn = document.getElementById("btn-touch-mode-toggle");
+    if (btn) {
+      btn.textContent = this.touchDragMode === "pan" ? "✋ DRAG: PAN" : "📦 DRAG: SELECT";
+    }
+    Sound.playRadioChirp();
   }
 
   startBuildPlacement(buildingType) {
     this.activeBuildGhost = buildingType;
     this.activeAbilityTargeting = null;
+    this.clearSelection();
+    this.updateTouchActionBar();
   }
 
-  placeBuildingAtHover() {
-    if (!this.activeBuildGhost) return;
+  placeBuildingAt(tx, ty) {
+    if (!this.activeBuildGhost) return false;
     const conf = BUILDINGS_CONFIG[this.activeBuildGhost];
-    if (!conf) return;
-
-    const tx = this.hoverTile.x;
-    const ty = this.hoverTile.y;
+    if (!conf) return false;
 
     if (this.economy.funds < conf.cost || this.economy.techSupplies < (conf.techCost || 0)) {
-      this.particles.addFloatingText(tx, ty, "INSUFFICIENT RESOURCES", "#ff3333", 14);
-      return;
+      this.particles.addFloatingText(tx, ty, "INSUFFICIENT FUNDS", "#ff3333", 14);
+      Sound.playHeroAbility("recon");
+      return false;
     }
 
     let isValid = true;
@@ -569,7 +690,8 @@ export class InputSystem {
 
     if (!isValid) {
       this.particles.addFloatingText(tx, ty, "TERRAIN BLOCKED", "#ff4444", 13);
-      return;
+      Sound.playHeroAbility("recon");
+      return false;
     }
 
     this.economy.deductFunds(conf.cost);
@@ -586,19 +708,26 @@ export class InputSystem {
     }
 
     Sound.playBuildingPlaced();
+    this.particles.addFloatingText(tx, ty, `+${conf.name.toUpperCase()} DEPLOYED`, "#38ef7d", 14);
     this.activeBuildGhost = null;
+    this.updateTouchActionBar();
+    return true;
+  }
+
+  placeBuildingAtHover() {
+    if (!this.hoverTile) return;
+    this.placeBuildingAt(this.hoverTile.x, this.hoverTile.y);
   }
 
   startAbilityTargeting(abilityKey) {
     if (!this.hero || this.hero.isDead) return;
     this.activeAbilityTargeting = abilityKey;
     this.activeBuildGhost = null;
+    this.updateTouchActionBar();
   }
 
-  executeAbilityAtHover() {
+  executeAbilityAt(tx, ty) {
     if (!this.activeAbilityTargeting || !this.hero || this.hero.isDead) return;
-    const tx = this.hoverTile.fx;
-    const ty = this.hoverTile.fy;
 
     if (this.activeAbilityTargeting === "q") {
       this.hero.useAbilityQ(tx, ty, this.fogOfWar, this.particles);
@@ -616,6 +745,12 @@ export class InputSystem {
     }
 
     this.activeAbilityTargeting = null;
+    this.updateTouchActionBar();
+  }
+
+  executeAbilityAtHover() {
+    if (!this.hoverTile) return;
+    this.executeAbilityAt(this.hoverTile.fx, this.hoverTile.fy);
   }
 
   render(ctx) {
