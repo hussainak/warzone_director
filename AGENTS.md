@@ -91,6 +91,26 @@ warzone_director/
 - **Spacebar / Focus Button**: Centers camera directly on player base.
 - **Mouse Wheel**: Smooth zoom.
 
+### 4.5 Realistic Military Visuals & Unit Design
+- **Spec-Ops Rifleman**: Digital woodland/multicam camouflage trousers, combat boots with sole tread, high-impact knee pads, Crye-style MOLLE plate carrier with 3x STANAG 5.56mm magazine pouches, left shoulder radio with whip antenna, FAST high-cut ballistic helmet with Wilcox NVG shroud and cyan dual-tube night vision goggles, and M4A1 SOPMOD carbine (EOTech holographic sight, vertical foregrip, suppressor, and tactical laser pointer).
+- **Marksman Sniper**: Textured 3D ghillie foliage scrim cloak draping over shoulders/back, sniper boonie hat, and heavy Barrett M82 .50 Cal anti-materiel rifle with fluted barrel, iconic dual-baffle arrowhead muzzle brake, high-power optical scope with anti-glare lens glint, folded Harris bipod, and 10-round steel box magazine.
+- **Anti-Armor RPG Specialist**: Heavy assault backpack carrying **2x spare PG-7VL rocket warheads** visibly protruding above both shoulders, blast goggles, and shoulder-mounted RPG-7 launcher with wooden heat shield, PGO-7 optical sight, flared front tube, and loaded PG-7VL shaped-charge warhead.
+- **Rogue Insurgent / Militiaman**: Desert khaki fatigues, chest webbing rig, head wrapped in a traditional desert Shemagh / Keffiyeh scarf with eye slit, and AK-47 assault rifle with stamped receiver, curved orange banana magazine, wooden handguard and buttstock, and hooded front sight post.
+- **Hero Commander "Vanguard"**: Elite spec-ops commander with tactical exosuit frame, gold officer rank epaulets, glowing cyan holographic HUD visor, left-wrist gauntlet with holo-projector, customized suppressed Mk18 CQBR carbine, sidearm holster, dynamic walking stride, and floating level star badge (`★ LVL ${level}`).
+- **M1A2 Abrams Battle Tank**: Continuous caterpillar tracks with 6 roadwheels per side, animated rubber chevron track pads, heavy side-skirt armor with modular rectangular ERA tiles, slanted glacis plate, faceted Chobham turret, 120mm smoothbore cannon with central bore evacuator and muzzle collimator, commander .50 cal cupola, bustle storage rack, and dual 6-tube smoke grenade dischargers.
+- **Fast Attack Buggy**: 4 oversized knobby all-terrain tires with aluminum wheel hubs, tubular roll-cage chassis, front bull-bar brush guard with winch, rear utility bed with strapped spare tire and fuel jerry cans, and rotating pintle turret with twin heavy machine guns.
+- **AH-64 Apache Attack Gunship**: Aerodynamic matte olive fuselage, stepped tandem cockpits with blue polarized glass, twin turbine engine pods, 4-blade spinning rotor with aerodynamic blur disc, tail boom with tail rotor, stub wings armed with 8x AGM-114 Hellfires and twin 19-tube Hydra 70 rocket pods, and nose-mounted 30mm chain gun.
+
+### 4.6 Tactical Mission Briefing & Start Screen Overlay
+- **Start Screen Overlay (`#briefing-modal`)**: Greets player on first load with a high-impact military briefing card.
+- **4-Step Quick Summarized Guide**:
+  1. *Direct Your Strike Force* (Right-click move, box drag select, WASD/Edge pan).
+  2. *Establish Forward Base* (Deploy Barracks, War Factory, Helipads, Turrets).
+  3. *Secure Oil Derricks & Trade Hub* (Capture derricks for passive income, exchange commodities, call mercenary airdrops).
+  4. *Repel Rival Hostile Armies* (5-minute peace countdown, or early trigger with "CALL WAVE NOW").
+- **Commence Operation Button (`#btn-start-game`)**: Prominent glowing tactical button that starts the game loop, initializes Web Audio API on user gesture, plays radio squelch, and closes the modal.
+- **Keyboard Shortcuts**: Pressing `ENTER` or `SPACEBAR` also triggers game start immediately.
+
 ---
 
 ## 5. Public Deployment & GitHub Pages
