@@ -102,7 +102,13 @@ class Game {
     const jumpRiverBtn = document.getElementById("jump-sector-river");
     if (jumpRiverBtn) jumpRiverBtn.addEventListener("click", () => this.camera.centerOn(16, 46));
 
-    // Audio init on user gesture
+    // Audio init & Start Game Handler
+    window.__startGame = () => {
+      Sound.init();
+      Sound.playRadioChirp();
+      this.particles.addFloatingText(this.hero.x, this.hero.y, "OPERATION COMMENCED! GOOD LUCK COMMANDER", "#38ef7d", 16);
+    };
+
     window.addEventListener(
       "click",
       () => {

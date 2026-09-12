@@ -80,6 +80,9 @@
 
     <!-- Quick Actions -->
     <div class="top-right">
+      <button id="btn-open-briefing" class="top-btn" title="View Mission Briefing & Quick Guide">
+        📋 BRIEFING
+      </button>
       <button id="btn-open-trade" class="top-btn btn-trade" title="Open Global Trade & Mercenary Market">
         <span>💹</span>
         <span>TRADE HUB</span>
@@ -316,9 +319,101 @@
     </div>
   </div>
 
+  <!-- Mission Briefing & Start Game Overlay Modal -->
+  <div id="briefing-modal" class="modal-backdrop">
+    <div class="modal-card briefing-card tactical-panel">
+      <div class="modal-header briefing-header">
+        <div class="modal-title">
+          <span class="modal-icon briefing-logo">⚡</span>
+          <div>
+            <h2>OPERATION WARZONE: TACTICAL BRIEFING</h2>
+            <span class="briefing-sub">COMMANDER VANGUARD • MORNING THEATER OF COMBAT</span>
+          </div>
+        </div>
+        <button id="close-briefing-modal" class="modal-close-btn" title="Close Briefing">&times;</button>
+      </div>
+
+      <div class="modal-body briefing-body">
+        <div class="briefing-lead">
+          Welcome to the battlefield, Commander. You lead the allied strike force deployed to establish forward operations, secure territory, and neutralize rival mercenary syndicates.
+        </div>
+
+        <!-- 4-Step Quick Summarized Explanation -->
+        <div class="briefing-steps-grid">
+          <div class="briefing-step-card">
+            <div class="step-num">01</div>
+            <div class="step-content">
+              <h4>🎯 COMMAND YOUR ARMIES</h4>
+              <p><b>Right-Click</b> anywhere to move or attack with green destination rings. <b>Left-Click & Drag</b> to box-select your strike force (Soldiers, Snipers, RPGs, Buggies, Abrams Tanks).</p>
+            </div>
+          </div>
+
+          <div class="briefing-step-card">
+            <div class="step-num">02</div>
+            <div class="step-content">
+              <h4>🏗️ RAISE BASES & FACTORIES</h4>
+              <p>Use your <b>$2,500 funds</b> to build Solar Reactors (+140 MW), Barracks, War Factories, Helipads, and automated Minigun Pillboxes to reinforce base security.</p>
+            </div>
+          </div>
+
+          <div class="briefing-step-card">
+            <div class="step-num">03</div>
+            <div class="step-content">
+              <h4>💰 SECURE CASH & TRADE</h4>
+              <p>Send troops to capture neutral <b>Oil Derricks</b> across the river for steady passive income ($18/s). Use the <b>Trade Hub</b> to trade supplies or call instant mercenary airdrops.</p>
+            </div>
+          </div>
+
+          <div class="briefing-step-card">
+            <div class="step-num">04</div>
+            <div class="step-content">
+              <h4>🚨 REPEL RIVAL HOSTILE ARMIES</h4>
+              <p>Three rival factions (<b>North, South, River</b>) are visible assembling on the map. You have <b>5 minutes of peace</b> before waves attack, or click <b>"CALL WAVE NOW"</b> when ready!</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Start Game CTA Button -->
+        <div class="briefing-cta-wrap">
+          <button id="btn-start-game" class="btn-start-game">
+            <span class="btn-start-icon">▶</span>
+            <span class="btn-start-label">COMMENCE OPERATION (START GAME)</span>
+          </button>
+          <span class="briefing-key-tip">Press <b>ENTER</b> or <b>SPACEBAR</b> to deploy immediately</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="js/main.js"></script>
   <script>
-    // D-Pad and Modal Wireup
+    // Briefing Modal & Start Game Wireup
+    const briefingModal = document.getElementById('briefing-modal');
+    const startGame = () => {
+      if (briefingModal && !briefingModal.classList.contains('hidden')) {
+        briefingModal.classList.add('hidden');
+        window.__startGame?.();
+      }
+    };
+
+    document.getElementById('btn-start-game')?.addEventListener('click', startGame);
+    document.getElementById('close-briefing-modal')?.addEventListener('click', () => {
+      briefingModal?.classList.add('hidden');
+    });
+    document.getElementById('btn-open-briefing')?.addEventListener('click', () => {
+      briefingModal?.classList.remove('hidden');
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (briefingModal && !briefingModal.classList.contains('hidden')) {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          startGame();
+        }
+      }
+    });
+
+    // Intel modal wire-up
     document.getElementById('btn-open-help')?.addEventListener('click', () => {
       document.getElementById('intel-modal')?.classList.remove('hidden');
     });

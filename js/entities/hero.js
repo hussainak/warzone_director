@@ -28,6 +28,7 @@ export class HeroCommander extends Entity {
     this.angle = 0;
     this.target = null;
     this.path = [];
+    this.walkCycle = 0;
     this.attackTimer = 0;
     this.auraPulse = 0;
 
@@ -118,6 +119,7 @@ export class HeroCommander extends Entity {
 
     // Path navigation
     if (this.path.length > 0) {
+      this.walkCycle += dt * 14;
       const wp = this.path[0];
       const dx = wp.x - this.x;
       const dy = wp.y - this.y;
@@ -133,6 +135,8 @@ export class HeroCommander extends Entity {
         this.x += (dx / dist) * move;
         this.y += (dy / dist) * move;
       }
+    } else {
+      this.walkCycle = 0;
     }
   }
 
@@ -245,68 +249,155 @@ export class HeroCommander extends Entity {
     ctx.translate(sx, sy);
 
     // Hero Command Aura on ground (glowing tactical cyan ring)
-    const pulseSize = 18 + Math.sin(this.auraPulse) * 2;
+    const pulseSize = 19 + Math.sin(this.auraPulse) * 2.5;
     ctx.strokeStyle = "rgba(0, 240, 255, 0.45)";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
     ctx.ellipse(0, 4, pulseSize, pulseSize * 0.5, 0, 0, Math.PI * 2);
     ctx.stroke();
 
-    // Ground shadow
-    ctx.fillStyle = "rgba(0, 0, 0, 0.4)";
+    // Directional morning ground shadow
+    ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
     ctx.beginPath();
-    ctx.ellipse(0, 3, 11, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(2.5, 4, 13, 6, 0.2, 0, Math.PI * 2);
     ctx.fill();
 
-    // Spec-Ops Commander Exo-Suit
-    // Body / Torso
-    ctx.fillStyle = "#1a365d"; // Elite Navy Blue
+    // Animated stride and vertical bobbing
+    const stride = Math.sin(this.walkCycle) * 3.8;
+    const bobY = Math.abs(Math.cos(this.walkCycle)) * 1.2;
+
+    // --- 1. ARTICULATED LEGS & COMBAT BOOTS ---
+    // Left Leg
+    ctx.fillStyle = "#1e2c3d"; // Dark Navy Tactical Cargo
+    ctx.fillRect(-3.5 + stride, -6 - bobY, 3, 7);
+    ctx.fillStyle = "#10161f"; // Tactical Combat Boot
+    ctx.fillRect(-4 + stride, 1 - bobY, 3.8, 3.2);
+    // Gold Officer Kneepad
+    ctx.fillStyle = "#ecc94b";
+    ctx.fillRect(-3.5 + stride, -3 - bobY, 3, 2);
+
+    // Right Leg
+    ctx.fillStyle = "#1e2c3d";
+    ctx.fillRect(1 - stride, -6 - bobY, 3, 7);
+    ctx.fillStyle = "#10161f";
+    ctx.fillRect(0.5 - stride, 1 - bobY, 3.8, 3.2);
+    // Gold Officer Kneepad
+    ctx.fillStyle = "#ecc94b";
+    ctx.fillRect(1 - stride, -3 - bobY, 3, 2);
+
+    // --- 2. TORSO: SPEC-OPS EXOSUIT PLATE CARRIER ---
+    ctx.fillStyle = "#142538"; // Elite Navy Ballistic Plate
     ctx.beginPath();
-    ctx.arc(0, -9, 6.5, 0, Math.PI * 2);
+    ctx.roundRect(-5.5, -15 - bobY, 11, 10, 2);
     ctx.fill();
 
-    // Gold / Neon trims
-    ctx.strokeStyle = "#ecc94b";
-    ctx.lineWidth = 1.5;
+    // Gold Rank Epaulets & MOLLE Straps
+    ctx.fillStyle = "#ecc94b";
+    ctx.fillRect(-4, -14.5 - bobY, 8, 1.8);
+    // Triple Mag Pouches
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(-4, -10.5 - bobY, 8, 3.5);
+    ctx.fillStyle = "#475569";
+    ctx.fillRect(-3.5, -10 - bobY, 2, 2.8);
+    ctx.fillRect(-0.5, -10 - bobY, 2, 2.8);
+    ctx.fillRect(2.5, -10 - bobY, 2, 2.8);
+
+    // Shoulder Comms Antenna
+    ctx.strokeStyle = "#94a3b8";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-4.5, -14 - bobY);
+    ctx.lineTo(-6.5, -22 - bobY);
     ctx.stroke();
 
-    // Combat Helmet / Visor
-    ctx.fillStyle = "#2d3748";
+    // Thigh Holster with Sidearm Pistol on right
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(3.5, -6 - bobY, 2.5, 4);
+
+    // --- 3. HEAD & ADVANCED COMMAND HELMET ---
+    ctx.fillStyle = "#1e293b";
     ctx.beginPath();
-    ctx.arc(0, -17, 4.5, 0, Math.PI * 2);
+    ctx.arc(0, -18.5 - bobY, 4.8, 0, Math.PI * 2);
     ctx.fill();
+
+    // Gold Officer Helmet Trim
+    ctx.strokeStyle = "#ecc94b";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(0, -19 - bobY, 4.8, Math.PI * 1.1, Math.PI * 1.9);
+    ctx.stroke();
 
     // Glowing Cyan Tactical HUD Visor
     ctx.fillStyle = "#00f0ff";
-    ctx.fillRect(-2, -18, 5, 2.5);
+    ctx.fillRect(-2.5, -20 - bobY, 5, 2.2);
 
-    // Dual Assault Carbine
-    ctx.strokeStyle = "#cbd5e0";
-    ctx.lineWidth = 2.5;
+    // Tactical Headset Earmuffs
+    ctx.fillStyle = "#0f172a";
+    ctx.fillRect(-5.8, -19.5 - bobY, 1.8, 3);
+    ctx.fillRect(4.0, -19.5 - bobY, 1.8, 3);
+
+    // --- 4. ARMS & WEAPON (Rotated to Aim Angle) ---
+    ctx.save();
+    ctx.translate(0, -11 - bobY);
+    ctx.rotate(this.angle);
+
+    // Left Arm with Tactical Gauntlet
+    ctx.fillStyle = "#1e2c3d";
+    ctx.fillRect(0, 1.5, 6, 2.8);
+    // Glowing cyan wrist holo-projector
+    ctx.fillStyle = "#00f0ff";
+    ctx.fillRect(4, 2, 2, 1.8);
+
+    // Right Arm gripping rifle
+    ctx.fillStyle = "#1e2c3d";
+    ctx.fillRect(0, -3.5, 7, 2.8);
+
+    // Customized Suppressed Mk18 Carbine
+    ctx.fillStyle = "#0f172a"; // Receiver
+    ctx.fillRect(3, -1.8, 11, 2.4);
+    // Holographic Optic Sight
+    ctx.fillStyle = "#ecc94b";
+    ctx.fillRect(5, -3.6, 3.5, 1.8);
+    ctx.fillStyle = "#ff3333"; // Reticle dot
+    ctx.fillRect(7, -3, 1, 1);
+    // Drum Magazine
+    ctx.fillStyle = "#1e293b";
     ctx.beginPath();
-    ctx.moveTo(0, -9);
-    ctx.lineTo(Math.cos(this.angle) * 12, -9 + Math.sin(this.angle) * 12);
+    ctx.arc(6, 1.5, 2.2, 0, Math.PI * 2);
+    ctx.fill();
+    // Silencer / Suppressor
+    ctx.fillStyle = "#334155";
+    ctx.fillRect(14, -2.1, 5, 3.0);
+
+    // Tactical Aiming Laser Beam
+    ctx.strokeStyle = "rgba(0, 240, 255, 0.4)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(19, -0.6);
+    ctx.lineTo(42, -0.6);
     ctx.stroke();
 
-    // Hero Badge / Level Star
+    ctx.restore();
+
+    // Floating Level Star Badge
     ctx.fillStyle = "#ecc94b";
     ctx.font = "bold 9px 'Outfit', monospace";
     ctx.textAlign = "center";
-    ctx.fillText(`★ LVL ${this.level}`, 0, -28);
+    ctx.fillText(`★ LVL ${this.level}`, 0, -29 - bobY);
 
     ctx.restore();
 
     // Health and Energy Bar
-    this.renderHealthBar(ctx, sx, sy, -22, 32, 4);
+    this.renderHealthBar(ctx, sx, sy, -23, 34, 4);
 
-    // Energy bar (Blue line under health)
+    // Energy bar (Cyan line under health)
     const energyRatio = Math.max(0, Math.min(1, this.energy / this.maxEnergy));
     ctx.save();
-    ctx.translate(sx, sy - 17);
-    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
-    ctx.fillRect(-16, 0, 32, 2.5);
+    ctx.translate(sx, sy - 18);
+    ctx.fillStyle = "rgba(0, 0, 0, 0.65)";
+    ctx.fillRect(-17, 0, 34, 2.5);
     ctx.fillStyle = "#00f0ff";
-    ctx.fillRect(-16, 0, 32 * energyRatio, 2.5);
+    ctx.fillRect(-17, 0, 34 * energyRatio, 2.5);
     ctx.restore();
   }
 }
