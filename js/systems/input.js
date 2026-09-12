@@ -28,11 +28,11 @@ export class InputSystem {
     this.panStart = { x: 0, y: 0 };
 
     // Touch gesture state for iPad and mobile touchscreens
-    this.touchDragMode = "pan"; // "pan" or "select"
     this.touchState = {
       isTouch: false,
       isPinching: false,
       isPanning: false,
+      movedDistance: 0,
       startX: 0,
       startY: 0,
       lastX: 0,
@@ -58,9 +58,6 @@ export class InputSystem {
     window.__cancelActiveMode = () => {
       this.cancelActiveMode();
       this.updateTouchActionBar();
-    };
-    window.__toggleTouchDragMode = () => {
-      this.toggleTouchDragMode();
     };
 
     this.setupListeners();
@@ -303,26 +300,24 @@ export class InputSystem {
       const cx = touch.clientX - rect.left;
       const cy = touch.clientY - rect.top;
 
+      // Fresh touch — fully reset state to prevent stale coordinates after minimap jumps
       this.touchState.isTouch = true;
       this.touchState.isPinching = false;
       this.touchState.isPanning = false;
+      this.touchState.movedDistance = 0;
       this.touchState.startX = cx;
       this.touchState.startY = cy;
       this.touchState.lastX = cx;
       this.touchState.lastY = cy;
+      this.touchState.lastPinchDist = 0;
 
       this.mousePos.x = cx;
       this.mousePos.y = cy;
       this.hoverTile = this.camera.screenToTile(cx, cy);
-
-      if (this.touchDragMode === "select") {
-        this.isDragging = true;
-        this.dragStart.x = cx;
-        this.dragStart.y = cy;
-      }
     } else if (e.touches.length === 2) {
       this.touchState.isPinching = true;
       this.touchState.isPanning = true;
+      this.touchState.movedDistance = 999; // prevent tap on release
       this.isDragging = false;
 
       const t1 = e.touches[0];
@@ -343,8 +338,10 @@ export class InputSystem {
       const cx = touch.clientX - rect.left;
       const cy = touch.clientY - rect.top;
 
-      const totalDist = Math.hypot(cx - this.touchState.startX, cy - this.touchState.startY);
-      if (totalDist > 8) {
+      const frameDist = Math.hypot(cx - this.touchState.lastX, cy - this.touchState.lastY);
+      this.touchState.movedDistance += frameDist;
+
+      if (this.touchState.movedDistance > 10) {
         this.touchState.isPanning = true;
       }
 
@@ -352,15 +349,11 @@ export class InputSystem {
       this.mousePos.y = cy;
       this.hoverTile = this.camera.screenToTile(cx, cy);
 
-      if (this.touchDragMode === "select" && this.isDragging) {
-        // Dragging selection rectangle
-      } else {
-        // Dragging camera pan
-        if (this.touchState.isPanning) {
-          const dx = this.touchState.lastX - cx;
-          const dy = this.touchState.lastY - cy;
-          this.camera.panBy(dx, dy);
-        }
+      // Always pan camera on single-finger drag (no select mode confusion)
+      if (this.touchState.isPanning) {
+        const dx = this.touchState.lastX - cx;
+        const dy = this.touchState.lastY - cy;
+        this.camera.panBy(dx, dy);
       }
 
       this.touchState.lastX = cx;
@@ -369,6 +362,7 @@ export class InputSystem {
     } else if (e.touches.length === 2) {
       this.touchState.isPinching = true;
       this.touchState.isPanning = true;
+      this.touchState.movedDistance = 999;
       this.isDragging = false;
 
       const t1 = e.touches[0];
@@ -399,21 +393,14 @@ export class InputSystem {
       if (e.touches.length === 0) {
         this.touchState.isPinching = false;
         this.touchState.isPanning = false;
+        this.touchState.movedDistance = 0;
         this.touchState.lastPinchDist = 0;
       }
       return;
     }
 
-    if (this.touchDragMode === "select" && this.isDragging) {
-      this.isDragging = false;
-      const dragDist = Math.hypot(this.mousePos.x - this.dragStart.x, this.mousePos.y - this.dragStart.y);
-      if (dragDist > 14) {
-        this.selectUnitsInBox(this.dragStart, this.mousePos);
-      } else {
-        this.handleTap(this.mousePos.x, this.mousePos.y, true);
-      }
-    } else if (!this.touchState.isPanning && e.changedTouches.length > 0) {
-      // Tap detected (no drag)
+    // Detect tap: finger lifted without significant movement (< 10px total)
+    if (this.touchState.movedDistance < 10 && e.changedTouches.length > 0) {
       const touch = e.changedTouches[0];
       const rect = this.canvas.getBoundingClientRect();
       const tapX = touch.clientX - rect.left;
@@ -425,6 +412,7 @@ export class InputSystem {
       this.touchState.isTouch = false;
       this.touchState.isPanning = false;
       this.touchState.isPinching = false;
+      this.touchState.movedDistance = 0;
       this.isDragging = false;
     }
   }
@@ -616,47 +604,24 @@ export class InputSystem {
     const msg = document.getElementById("touch-action-msg");
     if (!bar || !icon || !msg) return;
 
+    // Only show the floating banner during building placement or ability targeting
     if (this.activeBuildGhost) {
       const conf = BUILDINGS_CONFIG[this.activeBuildGhost];
       bar.classList.remove("hidden");
       icon.textContent = "🏗️";
-      msg.textContent = `TAP PLAY AREA TO PLACE ${conf ? conf.name.toUpperCase() : "BUILDING"}`;
+      msg.textContent = `TAP MAP TO PLACE ${conf ? conf.name.toUpperCase() : "BUILDING"} • TAP ✕ TO CANCEL`;
       return;
     }
 
     if (this.activeAbilityTargeting) {
       bar.classList.remove("hidden");
       icon.textContent = "🎯";
-      msg.textContent = `TAP TARGET AREA FOR HERO ABILITY [${this.activeAbilityTargeting.toUpperCase()}]`;
+      msg.textContent = `TAP TARGET FOR ABILITY [${this.activeAbilityTargeting.toUpperCase()}] • TAP ✕ TO CANCEL`;
       return;
     }
 
-    const heroSelected = this.hero && this.hero.isSelected;
-    const unitCount = this.selectedUnits.length;
-
-    if (heroSelected || unitCount > 0) {
-      bar.classList.remove("hidden");
-      icon.textContent = "🎯";
-      if (heroSelected && unitCount > 0) {
-        msg.textContent = `HERO & ${unitCount} TROOPS: TAP GROUND TO MOVE / ATTACK`;
-      } else if (heroSelected) {
-        msg.textContent = `HERO VANGUARD: TAP GROUND TO MOVE / ATTACK`;
-      } else {
-        msg.textContent = `${unitCount} UNIT${unitCount > 1 ? "S" : ""}: TAP GROUND TO MOVE / ATTACK`;
-      }
-      return;
-    }
-
+    // Hide for all other states (no more annoying "drag: pan / select" bar)
     bar.classList.add("hidden");
-  }
-
-  toggleTouchDragMode() {
-    this.touchDragMode = this.touchDragMode === "pan" ? "select" : "pan";
-    const btn = document.getElementById("btn-touch-mode-toggle");
-    if (btn) {
-      btn.textContent = this.touchDragMode === "pan" ? "✋ DRAG: PAN" : "📦 DRAG: SELECT";
-    }
-    Sound.playRadioChirp();
   }
 
   startBuildPlacement(buildingType) {
