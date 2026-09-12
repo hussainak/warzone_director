@@ -34,6 +34,9 @@ body, html {
   background-color: var(--bg-primary);
   font-family: var(--font-body);
   color: var(--text-main);
+  touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
 }
 
 /* Main Viewport Canvas (Bright Morning Sky Horizon) */
@@ -47,6 +50,8 @@ body, html {
   z-index: 1;
   background-color: #8fc0e6;
   cursor: crosshair;
+  touch-action: none;
+  -webkit-touch-callout: none;
 }
 
 /* On-Screen Floating Camera D-Pad (Convenient for Laptops / Trackpads) */
@@ -1183,4 +1188,81 @@ body, html {
 
 .briefing-key-tip b {
   color: var(--accent-amber);
+}
+
+/* Pause Button & Pause Overlay Modal */
+.btn-pause {
+  background: rgba(236, 201, 75, 0.12);
+  border-color: rgba(236, 201, 75, 0.4);
+  color: var(--accent-amber);
+}
+
+.btn-pause:hover {
+  background: rgba(236, 201, 75, 0.25);
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 14px rgba(236, 201, 75, 0.35);
+}
+
+.pause-card {
+  width: 480px;
+  max-width: 90vw;
+  border-color: var(--accent-amber);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9), 0 0 30px rgba(236, 201, 75, 0.3);
+}
+
+.pause-header {
+  background: linear-gradient(90deg, rgba(236, 201, 75, 0.15), rgba(13, 21, 33, 0.8));
+  border-bottom: 1px solid rgba(236, 201, 75, 0.3);
+}
+
+.pause-sub {
+  font-family: var(--font-display);
+  font-size: 8.5px;
+  letter-spacing: 1.5px;
+  color: var(--accent-amber);
+  font-weight: 700;
+  display: block;
+  margin-top: 2px;
+}
+
+.pause-body {
+  padding: 24px;
+  text-align: center;
+  gap: 18px;
+}
+
+.pause-body p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #cbd5e1;
+}
+
+.pause-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
+}
+
+.btn-resume-game {
+  background: linear-gradient(135deg, #2b6cb0, #00f0ff);
+  border: 2px solid var(--accent-cyan);
+  color: #ffffff;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  padding: 12px 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.45);
+  transition: all 0.2s ease;
+}
+
+.btn-resume-game:hover {
+  background: linear-gradient(135deg, #00f0ff, #38ef7d);
+  color: #000;
+  transform: scale(1.04);
 }

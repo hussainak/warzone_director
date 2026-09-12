@@ -55,7 +55,7 @@ export class Unit extends Entity {
     }
   }
 
-  update(dt, allEntities, pathfinding, particleSystem, projectiles) {
+  update(dt, allEntities, pathfinding, particleSystem, projectiles, economy) {
     if (this.isDead) return;
 
     this.attackTimer -= dt;
@@ -63,10 +63,42 @@ export class Unit extends Entity {
       this.rotorAngle += dt * 32;
     }
 
-    // Auto-acquire closest hostile target if idle
+    // --- Farmer / Civilian Worker Autonomous Behavior (Age of Empires style) ---
+    if (this.unitId === "worker") {
+      this.farmTimer = (this.farmTimer || 0) + dt;
+      if (this.farmTimer >= 3.8) {
+        this.farmTimer = 0;
+        // Check if near an agricultural farm
+        const nearbyFarm = allEntities.find(
+          (e) => e.buildingType === "farm" && e.team === this.team && Math.hypot(e.x + 1 - this.x, e.y + 1 - this.y) <= 4.2
+        );
+        if (nearbyFarm) {
+          if (economy) economy.funds += 18;
+          particleSystem.addFloatingText(this.x, this.y, "+🌾 $18 HARVEST", "#ecc94b", 12);
+          Sound.playCoins();
+        }
+      }
+
+      // Check if near a damaged allied building to actively repair
+      this.repairTimer = (this.repairTimer || 0) + dt;
+      if (this.repairTimer >= 1.0) {
+        this.repairTimer = 0;
+        const damagedBldg = allEntities.find(
+          (e) => e.w && e.team === this.team && e.hp < e.maxHp && !e.isDead && Math.hypot(e.x + e.w / 2 - this.x, e.y + e.h / 2 - this.y) <= 3.2
+        );
+        if (damagedBldg) {
+          damagedBldg.heal(30);
+          particleSystem.addFloatingText(damagedBldg.x + damagedBldg.w / 2, damagedBldg.y, "+🔨 REPAIR", "#38ef7d", 11);
+        }
+      }
+    }
+
+    // Auto-acquire closest hostile target if idle (farmers only defend if attacked)
     if (!this.target || this.target.isDead) {
       this.target = null;
-      this.findAutoTarget(allEntities);
+      if (this.unitId !== "worker") {
+        this.findAutoTarget(allEntities);
+      }
     }
 
     // Enemy autonomous idle patrol wander around home base
@@ -262,17 +294,20 @@ export class Unit extends Entity {
     // =========================================================================
     // 1. ULTRA-REALISTIC MODERN MILITARY INFANTRY
     // =========================================================================
-    if (this.category === "infantry") {
+    if (this.category === "infantry" || this.unitId === "worker") {
       const stride = Math.sin(this.walkCycle) * 3.8;
       const bobY = Math.abs(Math.cos(this.walkCycle)) * 1.2;
       const isSniper = this.unitId === "sniper";
       const isRpg = this.unitId === "rpg" || this.unitId === "enemy_rpg";
       const isMilitia = this.unitId === "enemy_militia" || this.unitId === "enemy_scout";
+      const isFarmer = this.unitId === "worker";
 
-      // Tactical Camouflage Palette
-      const pantsColor = isAllied
-        ? (isSniper ? "#3c4f36" : "#364e3b") // Allied Woodland / Multicam
-        : (isMilitia ? "#7c684d" : "#242831"); // Insurgent Tan vs Syndicate Urban
+      // Tactical Camouflage & Civilian Attire Palette
+      const pantsColor = isFarmer
+        ? "#254470" // Denim blue work overalls
+        : (isAllied
+          ? (isSniper ? "#3c4f36" : "#364e3b") // Allied Woodland / Multicam
+          : (isMilitia ? "#7c684d" : "#242831")); // Insurgent Tan vs Syndicate Urban
 
       const vestColor = isAllied
         ? (isSniper ? "#2d422e" : "#283f30") // MOLLE plate carrier
@@ -282,26 +317,30 @@ export class Unit extends Entity {
         ? "#3e5744" // FAST Ballistic Helmet
         : (isMilitia ? "#c29b68" : "#1a1e27");
 
-      // --- A. ARTICULATED LEGS & COMBAT BOOTS ---
+      // --- A. ARTICULATED LEGS & BOOTS ---
       ctx.save();
       // Left Leg
       ctx.fillStyle = pantsColor;
       ctx.fillRect(-3.2 + stride, -5 - bobY, 2.8, 6.5);
-      // Knee Pad
-      ctx.fillStyle = "#161b22";
-      ctx.fillRect(-3.2 + stride, -2.5 - bobY, 2.8, 2.0);
-      // Combat Boot with sole tread
-      ctx.fillStyle = "#111418";
+      if (!isFarmer) {
+        // Tactical Knee Pad
+        ctx.fillStyle = "#161b22";
+        ctx.fillRect(-3.2 + stride, -2.5 - bobY, 2.8, 2.0);
+      }
+      // Boot (Brown leather for farmers, black combat boot for soldiers)
+      ctx.fillStyle = isFarmer ? "#5c3818" : "#111418";
       ctx.fillRect(-3.6 + stride, 1.2 - bobY, 3.6, 3.2);
 
       // Right Leg
       ctx.fillStyle = pantsColor;
       ctx.fillRect(0.8 - stride, -5 - bobY, 2.8, 6.5);
-      // Knee Pad
-      ctx.fillStyle = "#161b22";
-      ctx.fillRect(0.8 - stride, -2.5 - bobY, 2.8, 2.0);
-      // Combat Boot
-      ctx.fillStyle = "#111418";
+      if (!isFarmer) {
+        // Tactical Knee Pad
+        ctx.fillStyle = "#161b22";
+        ctx.fillRect(0.8 - stride, -2.5 - bobY, 2.8, 2.0);
+      }
+      // Boot
+      ctx.fillStyle = isFarmer ? "#5c3818" : "#111418";
       ctx.fillRect(0.4 - stride, 1.2 - bobY, 3.6, 3.2);
       ctx.restore();
 
@@ -331,32 +370,60 @@ export class Unit extends Entity {
         ctx.fillRect(2, -12 - bobY, 3, 4);
       }
 
-      // --- C. TORSO: PLATE CARRIER / CHEST RIG ---
-      ctx.fillStyle = vestColor;
-      ctx.beginPath();
-      ctx.roundRect(-4.8, -13.5 - bobY, 9.6, 9.5, 2);
-      ctx.fill();
-
-      // MOLLE Straps & Mag Pouches
-      ctx.fillStyle = "#121814";
-      ctx.fillRect(-3.8, -10.5 - bobY, 7.6, 3.4);
-      ctx.fillStyle = isAllied ? "#2d4536" : "#4a3525";
-      ctx.fillRect(-3.2, -10 - bobY, 2, 2.5); // Mag 1
-      ctx.fillRect(-0.8, -10 - bobY, 2, 2.5); // Mag 2
-      ctx.fillRect(1.6, -10 - bobY, 2, 2.5);  // Mag 3
-
-      // Tactical Shoulder Radio Antenna (Player & Syndicate)
-      if (!isMilitia) {
-        ctx.strokeStyle = "#94a3b8";
-        ctx.lineWidth = 1;
+      // --- C. TORSO: FLANNEL / OVERALLS / PLATE CARRIER ---
+      if (isFarmer) {
+        // Red Flannel Shirt with Denim Overalls Bib
+        ctx.fillStyle = "#b91c1c"; // Flannel red
         ctx.beginPath();
-        ctx.moveTo(-4, -13 - bobY);
-        ctx.lineTo(-5.5, -20 - bobY);
-        ctx.stroke();
+        ctx.roundRect(-4.8, -13.5 - bobY, 9.6, 9.5, 2);
+        ctx.fill();
+        // Denim bib overalls
+        ctx.fillStyle = "#254470";
+        ctx.fillRect(-3.6, -10.5 - bobY, 7.2, 6.5);
+        // Brass overall strap buckles
+        ctx.fillStyle = "#ecc94b";
+        ctx.fillRect(-3.2, -10.8 - bobY, 1.8, 1.4);
+        ctx.fillRect(1.4, -10.8 - bobY, 1.8, 1.4);
+      } else {
+        // Combat Plate Carrier / Chest Rig
+        ctx.fillStyle = vestColor;
+        ctx.beginPath();
+        ctx.roundRect(-4.8, -13.5 - bobY, 9.6, 9.5, 2);
+        ctx.fill();
+
+        // MOLLE Straps & Mag Pouches
+        ctx.fillStyle = "#121814";
+        ctx.fillRect(-3.8, -10.5 - bobY, 7.6, 3.4);
+        ctx.fillStyle = isAllied ? "#2d4536" : "#4a3525";
+        ctx.fillRect(-3.2, -10 - bobY, 2, 2.5); // Mag 1
+        ctx.fillRect(-0.8, -10 - bobY, 2, 2.5); // Mag 2
+        ctx.fillRect(1.6, -10 - bobY, 2, 2.5);  // Mag 3
+
+        // Tactical Shoulder Radio Antenna
+        if (!isMilitia) {
+          ctx.strokeStyle = "#94a3b8";
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(-4, -13 - bobY);
+          ctx.lineTo(-5.5, -20 - bobY);
+          ctx.stroke();
+        }
       }
 
-      // --- D. HEADGEAR: FAST HELMET / SHEMAGH / BOONIE ---
-      if (isMilitia) {
+      // --- D. HEADGEAR: STRAW HAT / FAST HELMET / SHEMAGH / BOONIE ---
+      if (isFarmer) {
+        // Wide-Brim Straw Farmer Sunhat
+        ctx.fillStyle = "#d97706";
+        ctx.beginPath();
+        ctx.ellipse(0, -17.5 - bobY, 6.4, 4.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#f59e0b"; // Crown
+        ctx.beginPath();
+        ctx.arc(0, -19.0 - bobY, 3.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#78350f"; // Hat band
+        ctx.fillRect(-3.5, -18.0 - bobY, 7, 1.2);
+      } else if (isMilitia) {
         // Desert Keffiyeh / Shemagh Wrap
         ctx.fillStyle = helmetColor;
         ctx.beginPath();
@@ -394,18 +461,28 @@ export class Unit extends Entity {
         ctx.fillRect(-2.2, -19.2 - bobY, 4.4, 1.8);
       }
 
-      // --- E. ARMS & WEAPON (Oriented in 2-Handed Combat Ready Stance) ---
+      // --- E. ARMS & TOOL / WEAPON ---
       ctx.save();
       ctx.translate(0, -10 - bobY);
       ctx.rotate(aimAngle);
 
-      // Arms
-      ctx.fillStyle = pantsColor;
-      ctx.fillRect(0, -3.2, 6.5, 2.4); // Right support arm
-      ctx.fillRect(0, 1.2, 5.5, 2.4);  // Left forward arm
+      // Arms (flannel for farmer, camouflage for soldiers)
+      ctx.fillStyle = isFarmer ? "#b91c1c" : pantsColor;
+      ctx.fillRect(0, -3.2, 6.5, 2.4); // Right arm
+      ctx.fillRect(0, 1.2, 5.5, 2.4);  // Left arm
 
       // Distinctive Realistic Weapon Models
-      if (isSniper) {
+      if (isFarmer) {
+        // --- AGRICULTURAL FARMING PITCHFORK / HOE ---
+        ctx.fillStyle = "#92400e"; // Ash wooden tool handle
+        ctx.fillRect(-2, -1.2, 16, 2.2);
+        // Steel Pitchfork Head / Hoe Blade
+        ctx.fillStyle = "#cbd5e0";
+        ctx.fillRect(13, -4.5, 2.4, 9.0); // Crossbar
+        ctx.fillRect(15, -4.5, 4.0, 1.8); // Top prong
+        ctx.fillRect(15, -0.9, 4.0, 1.8); // Middle prong
+        ctx.fillRect(15, 2.7, 4.0, 1.8);  // Bottom prong
+      } else if (isSniper) {
         // --- BARRETT M82 / M107 .50 CAL ANTI-MATERIEL RIFLE ---
         ctx.fillStyle = "#141920";
         ctx.fillRect(2, -1.8, 16, 2.4); // Heavy fluted receiver & barrel

@@ -102,6 +102,10 @@ class Game {
     const jumpRiverBtn = document.getElementById("jump-sector-river");
     if (jumpRiverBtn) jumpRiverBtn.addEventListener("click", () => this.camera.centerOn(16, 46));
 
+    // Tactical Pause State
+    this.isPaused = false;
+    window.__togglePause = () => this.togglePause();
+
     // Audio init & Start Game Handler
     window.__startGame = () => {
       Sound.init();
@@ -123,6 +127,25 @@ class Game {
     requestAnimationFrame((t) => this.loop(t));
   }
 
+  togglePause() {
+    this.isPaused = !this.isPaused;
+    const pauseOverlay = document.getElementById("pause-overlay");
+    const pauseBtnIcon = document.getElementById("pause-btn-icon");
+    const pauseBtnLabel = document.getElementById("pause-btn-label");
+
+    if (this.isPaused) {
+      if (pauseOverlay) pauseOverlay.classList.remove("hidden");
+      if (pauseBtnIcon) pauseBtnIcon.textContent = "▶";
+      if (pauseBtnLabel) pauseBtnLabel.textContent = "RESUME";
+      Sound.playRadioChirp();
+    } else {
+      if (pauseOverlay) pauseOverlay.classList.add("hidden");
+      if (pauseBtnIcon) pauseBtnIcon.textContent = "⏸️";
+      if (pauseBtnLabel) pauseBtnLabel.textContent = "PAUSE";
+      Sound.playRadioChirp();
+    }
+  }
+
   resizeCanvas() {
     this.canvas.width = window.innerWidth;
     this.canvas.height = window.innerHeight;
@@ -131,13 +154,19 @@ class Game {
   setupStartingWorld() {
     // 1. Player Base Structures
     this.spawnBuilding("hq", 18, 16, "player", true);
+    this.spawnBuilding("farm", 14, 15, "player", true); // Agricultural Farm Plot (Age of Empires economy)
     this.spawnBuilding("power", 14, 21, "player", true);
     this.spawnBuilding("barracks", 23, 17, "player", true);
     this.spawnBuilding("factory", 22, 22, "player", true);
-    this.spawnBuilding("turret", 13, 16, "player", true);
+    this.spawnBuilding("turret", 13, 18, "player", true);
     this.spawnBuilding("turret", 27, 18, "player", true);
 
-    // 2. Full Player Starting Army (Infantry squads, buggies, tank)
+    // 2. Civilian Farmers / Workers (cultivates crops +$18 harvest, repairs damaged buildings)
+    this.spawnUnit("worker", 15, 17, "player");
+    this.spawnUnit("worker", 16, 17, "player");
+    this.spawnUnit("worker", 17, 18, "player");
+
+    // 3. Full Player Starting Army (Infantry squads, buggies, tank)
     this.spawnUnit("rifleman", 20, 18, "player");
     this.spawnUnit("rifleman", 21, 19, "player");
     this.spawnUnit("rifleman", 19, 21, "player");
@@ -227,7 +256,15 @@ class Game {
     const allEntities = this.getAllEntities();
     const alliedEntities = allEntities.filter((e) => e.team === "player");
 
+    // Camera navigation (WASD, edge panning, touch drag) updates smoothly even while paused
     this.camera.update(dt);
+
+    if (this.isPaused) {
+      // Keep selection cards and HUD updated, but freeze world timeline & combat
+      this.hud.update(0, allEntities);
+      return;
+    }
+
     this.fogOfWar.update(dt, alliedEntities);
 
     this.hero.update(
@@ -241,7 +278,7 @@ class Game {
     );
 
     for (let i = 0; i < this.units.length; i++) {
-      this.units[i].update(dt, allEntities, this.pathfinding, this.particles, this.projectiles);
+      this.units[i].update(dt, allEntities, this.pathfinding, this.particles, this.projectiles, this.economy);
     }
 
     for (let i = 0; i < this.buildings.length; i++) {

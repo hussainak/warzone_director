@@ -27,6 +27,19 @@ export class InputSystem {
     this.isPanning = false;
     this.panStart = { x: 0, y: 0 };
 
+    // Touch gesture state for iPad and mobile touchscreens
+    this.touchState = {
+      isTouch: false,
+      startX: 0,
+      startY: 0,
+      lastX: 0,
+      lastY: 0,
+      startTime: 0,
+      isPanning: false,
+      initialPinchDist: 0,
+      longPressTimer: null,
+    };
+
     // Building placement ghost
     this.activeBuildGhost = null;
 
@@ -50,6 +63,30 @@ export class InputSystem {
     this.canvas.addEventListener("mouseup", (e) => this.handleMouseUp(e));
     this.canvas.addEventListener("contextmenu", (e) => this.handleContextMenu(e));
     this.canvas.addEventListener("wheel", (e) => this.handleWheel(e), { passive: false });
+
+    // Touch events for iPad and touchscreen drag panning & pinch-to-zoom
+    this.canvas.addEventListener("touchstart", (e) => this.handleTouchStart(e), { passive: false });
+    this.canvas.addEventListener("touchmove", (e) => this.handleTouchMove(e), { passive: false });
+    this.canvas.addEventListener("touchend", (e) => this.handleTouchEnd(e), { passive: false });
+    this.canvas.addEventListener("touchcancel", (e) => this.handleTouchEnd(e), { passive: false });
+
+    // iOS Safari native gesture events for pinch-to-zoom
+    this.canvas.addEventListener("gesturestart", (e) => {
+      e.preventDefault();
+      this.lastGestureScale = 1.0;
+    });
+    this.canvas.addEventListener("gesturechange", (e) => {
+      e.preventDefault();
+      if (e.scale && this.lastGestureScale) {
+        const ratio = e.scale / this.lastGestureScale;
+        this.camera.zoomByRatio(ratio);
+        this.lastGestureScale = e.scale;
+      }
+    });
+    this.canvas.addEventListener("gestureend", (e) => {
+      e.preventDefault();
+      this.lastGestureScale = 1.0;
+    });
   }
 
   handleKeyDown(e) {
@@ -209,10 +246,10 @@ export class InputSystem {
       return;
     }
 
-    // Right Click Command to selected units or Hero
-    const tileX = this.hoverTile.fx;
-    const tileY = this.hoverTile.fy;
+    this.issueMoveOrAttackOrder(this.hoverTile.fx, this.hoverTile.fy);
+  }
 
+  issueMoveOrAttackOrder(tileX, tileY) {
     // Show animated green move waypoint ring at destination
     this.particles.addMoveWaypoint(tileX, tileY, "#38ef7d");
 
@@ -262,6 +299,142 @@ export class InputSystem {
     }
   }
 
+  // --- iPad & Touchscreen Gestures (Tap-Drag to Pan, Pinch to Zoom, Tap to Select/Move) ---
+  handleTouchStart(e) {
+    e.preventDefault();
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const rect = this.canvas.getBoundingClientRect();
+      const cx = touch.clientX - rect.left;
+      const cy = touch.clientY - rect.top;
+
+      this.touchState.isTouch = true;
+      this.touchState.startX = cx;
+      this.touchState.startY = cy;
+      this.touchState.lastX = cx;
+      this.touchState.lastY = cy;
+      this.touchState.startTime = performance.now();
+      this.touchState.isPanning = false;
+
+      this.mousePos.x = cx;
+      this.mousePos.y = cy;
+      this.hoverTile = this.camera.screenToTile(cx, cy);
+
+      // Long press (500ms) issues a move/attack order on iPad
+      if (this.touchState.longPressTimer) clearTimeout(this.touchState.longPressTimer);
+      this.touchState.longPressTimer = setTimeout(() => {
+        if (!this.touchState.isPanning) {
+          this.issueMoveOrAttackOrder(this.hoverTile.fx, this.hoverTile.fy);
+        }
+      }, 500);
+
+    } else if (e.touches.length === 2) {
+      if (this.touchState.longPressTimer) {
+        clearTimeout(this.touchState.longPressTimer);
+        this.touchState.longPressTimer = null;
+      }
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      this.touchState.initialPinchDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+      this.touchState.lastX = (t1.clientX + t2.clientX) / 2;
+      this.touchState.lastY = (t1.clientY + t2.clientY) / 2;
+    }
+  }
+
+  handleTouchMove(e) {
+    e.preventDefault();
+
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const rect = this.canvas.getBoundingClientRect();
+      const cx = touch.clientX - rect.left;
+      const cy = touch.clientY - rect.top;
+
+      const totalDist = Math.hypot(cx - this.touchState.startX, cy - this.touchState.startY);
+      if (totalDist > 7) {
+        this.touchState.isPanning = true;
+        if (this.touchState.longPressTimer) {
+          clearTimeout(this.touchState.longPressTimer);
+          this.touchState.longPressTimer = null;
+        }
+      }
+
+      // Smooth camera pan by dragging finger
+      if (this.touchState.isPanning) {
+        const dx = this.touchState.lastX - cx;
+        const dy = this.touchState.lastY - cy;
+        this.camera.panBy(dx, dy);
+      }
+
+      this.touchState.lastX = cx;
+      this.touchState.lastY = cy;
+      this.mousePos.x = cx;
+      this.mousePos.y = cy;
+      this.hoverTile = this.camera.screenToTile(cx, cy);
+
+    } else if (e.touches.length === 2) {
+      // Pinch to Zoom & Two-Finger Pan
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+      if (this.touchState.initialPinchDist > 0 && currentDist > 0) {
+        const ratio = currentDist / this.touchState.initialPinchDist;
+        this.camera.zoomByRatio(ratio);
+        this.touchState.initialPinchDist = currentDist;
+      }
+
+      const midX = (t1.clientX + t2.clientX) / 2;
+      const midY = (t1.clientY + t2.clientY) / 2;
+      const dx = this.touchState.lastX - midX;
+      const dy = this.touchState.lastY - midY;
+      this.camera.panBy(dx, dy);
+      this.touchState.lastX = midX;
+      this.touchState.lastY = midY;
+    }
+  }
+
+  handleTouchEnd(e) {
+    if (this.touchState.longPressTimer) {
+      clearTimeout(this.touchState.longPressTimer);
+      this.touchState.longPressTimer = null;
+    }
+
+    if (!this.touchState.isPanning && e.changedTouches.length > 0) {
+      // Tap detected (no drag)
+      const touch = e.changedTouches[0];
+      const rect = this.canvas.getBoundingClientRect();
+      const tapX = touch.clientX - rect.left;
+      const tapY = touch.clientY - rect.top;
+      const tile = this.camera.screenToTile(tapX, tapY);
+
+      if (this.activeBuildGhost) {
+        this.placeBuildingAtHover();
+        return;
+      }
+
+      if (this.activeAbilityTargeting) {
+        this.executeAbilityAtHover();
+        return;
+      }
+
+      // Try selecting an entity at the tapped location
+      const didSelect = this.selectEntityAt(tile.x, tile.y);
+
+      // If units are already selected and user tapped empty ground or enemy, issue move/attack order!
+      if (!didSelect && (this.selectedUnits.length > 0 || (this.hero && this.hero.isSelected))) {
+        this.issueMoveOrAttackOrder(tile.fx, tile.fy);
+      }
+    }
+
+    if (e.touches.length === 0) {
+      this.touchState.isTouch = false;
+      this.touchState.isPanning = false;
+      this.touchState.initialPinchDist = 0;
+    }
+  }
+
   cancelActiveMode() {
     this.activeBuildGhost = null;
     this.activeAbilityTargeting = null;
@@ -288,7 +461,7 @@ export class InputSystem {
       this.hero.isSelected = true;
       if (this.onSelectionChanged) this.onSelectionChanged({ type: "hero", entity: this.hero });
       Sound.playRadioChirp();
-      return;
+      return true;
     }
 
     // Check allied units
@@ -299,7 +472,7 @@ export class InputSystem {
         this.selectedUnits.push(ent);
         if (this.onSelectionChanged) this.onSelectionChanged({ type: "unit", entity: ent });
         Sound.playRadioChirp();
-        return;
+        return true;
       }
     }
 
@@ -312,12 +485,13 @@ export class InputSystem {
           this.selectedBuilding = ent;
           if (this.onSelectionChanged) this.onSelectionChanged({ type: "building", entity: ent });
           Sound.playRadioChirp();
-          return;
+          return true;
         }
       }
     }
 
     if (this.onSelectionChanged) this.onSelectionChanged(null);
+    return false;
   }
 
   selectUnitsInBox(p1, p2) {

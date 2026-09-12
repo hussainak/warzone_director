@@ -80,6 +80,10 @@
 
     <!-- Quick Actions -->
     <div class="top-right">
+      <button id="btn-toggle-pause" class="top-btn btn-pause" title="Pause or Resume Tactical Simulation (Hotkey: P)">
+        <span id="pause-btn-icon">⏸️</span>
+        <span id="pause-btn-label">PAUSE</span>
+      </button>
       <button id="btn-open-briefing" class="top-btn" title="View Mission Briefing & Quick Guide">
         📋 BRIEFING
       </button>
@@ -168,6 +172,12 @@
           <span class="b-icon">⚡</span>
           <span class="b-name">SOLAR REACTOR</span>
           <span class="b-cost">$200</span>
+        </button>
+
+        <button class="btn-build" data-building="farm" title="Agricultural Farm: Cultivates food & crops, generates sustainable income ($140). Train and assign farmers to boost yields!">
+          <span class="b-icon">🌾</span>
+          <span class="b-name">FARM PLOT</span>
+          <span class="b-cost">$140</span>
         </button>
 
         <button class="btn-build" data-building="barracks" title="Infantry Barracks: Trains Soldiers, Snipers, and RPGs ($280, 20 T)">
@@ -319,6 +329,30 @@
     </div>
   </div>
 
+  <!-- Tactical Pause Modal Overlay -->
+  <div id="pause-overlay" class="modal-backdrop hidden">
+    <div class="modal-card pause-card tactical-panel">
+      <div class="modal-header pause-header">
+        <div class="modal-title">
+          <span class="modal-icon">⏸️</span>
+          <div>
+            <h2>TACTICAL SIMULATION PAUSED</h2>
+            <span class="pause-sub">TIMELINE FROZEN • BATTLEFIELD INSPECTION ACTIVE</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-body pause-body">
+        <p>Simulation is on tactical hold. Armies, combat, and invasion timers are frozen. You can still pan the camera and survey the battlefield.</p>
+        <div class="pause-actions">
+          <button id="btn-resume-game" class="btn-resume-game">
+            <span class="btn-resume-icon">▶</span>
+            <span class="btn-resume-label">RESUME SIMULATION (P)</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Mission Briefing & Start Game Overlay Modal -->
   <div id="briefing-modal" class="modal-backdrop">
     <div class="modal-card briefing-card tactical-panel">
@@ -359,8 +393,8 @@
           <div class="briefing-step-card">
             <div class="step-num">03</div>
             <div class="step-content">
-              <h4>💰 SECURE CASH & TRADE</h4>
-              <p>Send troops to capture neutral <b>Oil Derricks</b> across the river for steady passive income ($18/s). Use the <b>Trade Hub</b> to trade supplies or call instant mercenary airdrops.</p>
+              <h4>🌾 FARMS, WORKERS & TRADE</h4>
+              <p>Build <b>Agricultural Farms ($140)</b> and recruit <b>Civilian Farmers ($50)</b> to cultivate crops (+$18 harvest) and auto-repair buildings. Capture river <b>Oil Derricks</b> and use the <b>Trade Hub</b> for extra cash!</p>
             </div>
           </div>
 
@@ -379,7 +413,7 @@
             <span class="btn-start-icon">▶</span>
             <span class="btn-start-label">COMMENCE OPERATION (START GAME)</span>
           </button>
-          <span class="briefing-key-tip">Press <b>ENTER</b> or <b>SPACEBAR</b> to deploy immediately</span>
+          <span class="briefing-key-tip">Press <b>ENTER</b> to start • <b>P</b> to Pause/Resume • <b>iPad/Touch</b>: Tap-Drag to pan & 2-finger pinch to zoom</span>
         </div>
       </div>
     </div>
@@ -409,7 +443,28 @@
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           startGame();
+          return;
         }
+      }
+
+      if (e.key === 'p' || e.key === 'P') {
+        if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+          e.preventDefault();
+          window.__togglePause?.();
+        }
+      }
+    });
+
+    // Pause toggle & resume wire-up
+    document.getElementById('btn-toggle-pause')?.addEventListener('click', () => {
+      window.__togglePause?.();
+    });
+    document.getElementById('btn-resume-game')?.addEventListener('click', () => {
+      window.__togglePause?.();
+    });
+    document.getElementById('pause-overlay')?.addEventListener('click', (e) => {
+      if (e.target.id === 'pause-overlay') {
+        window.__togglePause?.();
       }
     });
 

@@ -82,7 +82,22 @@ export const BUILDINGS_CONFIG = {
     power: 80,
     passiveIncome: 30,     // Funds per second
     sightRadius: 12,
-    description: "Core Operations Center. Provides base command, passive cashflow ($30/s), and unlocks primary tech.",
+    trains: ["worker"],
+    description: "Core Operations Center. Provides base command, trains Civilian Farmers/Workers, passive cashflow ($30/s), and unlocks primary tech.",
+  },
+  farm: {
+    id: "farm",
+    name: "Agricultural Farm",
+    w: 2,
+    h: 2,
+    hp: 1100,
+    cost: 140,
+    techCost: 0,
+    power: 0,
+    sightRadius: 6,
+    passiveIncome: 16,     // Funds per second from crops/food
+    trains: ["worker"],
+    description: "Cultivated crop farm with automated irrigation. Produces sustainable food & cash yields ($16/s). Train farmers to boost yields!",
   },
   power: {
     id: "power",
@@ -107,7 +122,7 @@ export const BUILDINGS_CONFIG = {
     techCost: 20,
     power: -20,
     sightRadius: 7,
-    trains: ["rifleman", "sniper", "rpg"],
+    trains: ["worker", "rifleman", "sniper", "rpg"],
     description: "Recruitment training compound for Spec-Ops Riflemen, Heavy Snipers, and Anti-Tank RPG Operators.",
   },
   factory: {
@@ -185,6 +200,22 @@ export const BUILDINGS_CONFIG = {
 };
 
 export const UNITS_CONFIG = {
+  worker: {
+    id: "worker",
+    name: "Civilian Farmer / Worker",
+    category: "civilian",
+    hp: 130,
+    maxHp: 130,
+    speed: 2.3,
+    range: 2.2,
+    damage: 15,
+    attackRate: 0.6,
+    cost: 50,
+    techCost: 0,
+    trainTime: 2.5,
+    sightRadius: 6.5,
+    description: "Civilian farmer & laborer. Cultivates agricultural farms (+harvest cashflow) and automatically repairs damaged buildings.",
+  },
   rifleman: {
     id: "rifleman",
     name: "Spec-Ops Soldier",

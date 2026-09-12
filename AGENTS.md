@@ -111,6 +111,27 @@ warzone_director/
 - **Commence Operation Button (`#btn-start-game`)**: Prominent glowing tactical button that starts the game loop, initializes Web Audio API on user gesture, plays radio squelch, and closes the modal.
 - **Keyboard Shortcuts**: Pressing `ENTER` or `SPACEBAR` also triggers game start immediately.
 
+### 4.7 iPad & Touchscreen Navigation (Tap-Drag Pan & Pinch-to-Zoom)
+- **Fluid Tap-Drag Panning**: On iPad and mobile touch devices, players can smoothly drag single fingers across the battlefield to pan the isometric camera in any direction without unwanted browser viewport bouncing (enforced via CSS `touch-action: none;` and `-webkit-touch-callout: none;`).
+- **Continuous Pinch-to-Zoom**: Two-finger pinch gestures scale the camera zoom continuously using direct distance ratios (`zoomByRatio(ratio)`) between `0.40x` and `2.40x`, complemented by native iOS Safari `gesturestart`, `gesturechange`, and `gestureend` handlers.
+- **Touch Selection & Commands**:
+  - Single tap selects units or buildings under finger.
+  - Tapping ground while units are selected issues move/attack orders.
+  - Long press (500ms) issues an immediate tactical move or attack order with animated green waypoints.
+
+### 4.8 Civilian Agricultural Economy & Farmers (Age of Empires Hybrid)
+- **Agricultural Farm Plot (`farm`)**: 2x2 base structure ($140) featuring tilled fertile soil, rows of swaying golden wheat and green maize, rustic cedar tool shed, and an automated rotating micro-irrigation sprinkler with cyan water mist. Generates passive base funds ($16/s) and trains civilian workers.
+- **Civilian Farmer / Worker (`worker`)**: Civilian unit ($50, 130 HP) dressed in realistic agricultural attire (red plaid flannel shirt, denim overalls with brass buckles, brown leather boots, wide-brim woven straw sunhat, and steel pitchfork/hoe tool).
+- **Autonomous Agricultural Harvesting**: When stationed near an active farm, farmers cultivate crops every 3.8s, yielding `+$18 HARVEST` deposits directly into player funds accompanied by gold floating text and coin audio.
+- **Autonomous Building Repair**: Damaged allied structures within 3.2 tiles are automatically patched and repaired by farmers (+30 HP/s, with `+🔨 REPAIR` notifications).
+- **Recruitment**: Farmers can be recruited at the Command HQ, Agricultural Farms, or Infantry Barracks.
+
+### 4.9 Tactical Simulation Pause System
+- **Timeline Freeze with Free Camera Navigation**: Pausing the game freezes combat, unit movement, invasion timers, and production while keeping the isometric camera, zoom, and tactical inspection fully operational.
+- **HUD Pause Button (`#btn-toggle-pause`)**: Located in the top-right toolbar with dynamic icon toggle (`⏸️ PAUSE` / `▶ RESUME`).
+- **Keyboard Hotkey `P`**: Pressing `P` toggles pause at any time during gameplay.
+- **Tactical Pause Overlay (`#pause-overlay`)**: Sleek dark modal overlay indicating simulation hold, resumable via button click, `[P]` key, or clicking the semi-transparent backdrop.
+
 ---
 
 ## 5. Public Deployment & GitHub Pages

@@ -8,8 +8,8 @@ export class Camera {
     this.x = 0;             // World translation offset X (center of screen in world coordinates)
     this.y = 0;             // World translation offset Y
     this.zoom = 1.0;        // Zoom level
-    this.minZoom = 0.55;
-    this.maxZoom = 1.65;
+    this.minZoom = 0.40;
+    this.maxZoom = 2.40;
     this.targetZoom = 1.0;
 
     this.panSpeed = 750;    // Pixels per second
@@ -118,5 +118,15 @@ export class Camera {
     } else {
       this.targetZoom = Math.max(this.minZoom, this.targetZoom - 0.15);
     }
+  }
+
+  setZoom(newZoom) {
+    this.targetZoom = Math.max(this.minZoom, Math.min(this.maxZoom, newZoom));
+    this.zoom = this.targetZoom;
+  }
+
+  zoomByRatio(ratio) {
+    const newZoom = this.targetZoom * ratio;
+    this.setZoom(newZoom);
   }
 }

@@ -292,8 +292,49 @@ export class Building extends Entity {
       ctx.strokeRect(2, -24, 14, 10);
 
       const glow = (Math.sin(Date.now() * 0.006) + 1) * 0.5;
-      ctx.fillStyle = `rgba(0, 255, 200, ${0.4 + glow * 0.5})`;
-      ctx.fillRect(-4, -8, 8, 12);
+    } else if (this.buildingType === "farm") {
+      // Tilled Agricultural Soil Base (2x2 isometric field plot)
+      ctx.fillStyle = "#3d2813"; // Rich dark fertile soil
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 26, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#5c3d1e";
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      // Alternating Rows of Golden Wheat & Emerald Green Maize
+      const sway = Math.sin(Date.now() * 0.003) * 1.5;
+      for (let r = -8; r <= 8; r += 4) {
+        ctx.fillStyle = r % 8 === 0 ? "#ecc94b" : "#48bb78"; // Golden harvest / green crops
+        ctx.beginPath();
+        ctx.ellipse(sway * 0.4, r, 18 - Math.abs(r) * 0.9, 2.2, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Small Wooden Rustic Farm Tool Shed
+      ctx.fillStyle = "#653b1b";
+      ctx.fillRect(-15, -16, 11, 9);
+      ctx.fillStyle = "#9c522b"; // Red-brown cedar shingle roof
+      ctx.beginPath();
+      ctx.moveTo(-17, -16);
+      ctx.lineTo(-9.5, -23);
+      ctx.lineTo(-2, -16);
+      ctx.closePath();
+      ctx.fill();
+
+      // Automated Micro Irrigation Sprinkler & Water Mist
+      ctx.fillStyle = "#00f0ff";
+      ctx.beginPath();
+      ctx.arc(8, -6, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      const sprAngle = (Date.now() * 0.007) % (Math.PI * 2);
+      ctx.strokeStyle = "rgba(0, 240, 255, 0.45)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(8, -6);
+      ctx.lineTo(8 + Math.cos(sprAngle) * 9, -6 + Math.sin(sprAngle) * 4.5);
+      ctx.stroke();
     } else if (this.buildingType === "barracks") {
       ctx.fillStyle = wallColor;
       ctx.fillRect(-22, -18, 44, 26);
